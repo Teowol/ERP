@@ -1,8 +1,10 @@
 from decimal import Decimal
 
+from django.apps import apps
 from django.conf import settings
 from django.core.validators import MinValueValidator
-from django.db import models
+from django.db import models, transaction
+from django.utils import timezone
 
 from inventory.models import Product
 
@@ -351,6 +353,22 @@ class ProductionOrder(models.Model):
         related_name="created_production_orders",
         verbose_name="Oluşturan",
     )
+    raw_materials_warehouse = models.ForeignKey(
+        "inventory.Warehouse",
+        on_delete=models.PROTECT,
+        related_name="production_orders_raw",
+        null=True,
+        blank=True,
+        verbose_name="Hammadde Deposu",
+    )
+    finished_goods_warehouse = models.ForeignKey(
+        "inventory.Warehouse",
+        on_delete=models.PROTECT,
+        related_name="production_orders_finished",
+        null=True,
+        blank=True,
+        verbose_name="Mamul Deposu",
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -359,6 +377,113 @@ class ProductionOrder(models.Model):
         verbose_name = "Üretim Emri"
         verbose_name_plural = "Üretim Emirleri"
 
+    @transaction.atomic
+    def build_components_from_bom(self):
+        """Reçeteden üretim emri hammadde kalemlerini otomatik oluşturur."""
+        if not self.bill_of_material:
+            raise ValueError("Reçete tanımlı değil.")
+        if self.order_components.exists():
+            return
+        ratio = self.planned_quantity / self.bill_of_material.output_quantity
+        for item in self.bill_of_material.items.all():
+            required = (item.quantity * ratio) * (
+                Decimal("1") + item.scrap_percentage / Decimal("100")
+            )
+            ProductionOrderComponent.objects.create(
+                production_order=self,
+                component=item.component,
+                required_quantity=required,
+                consumed_quantity=Decimal("0"),
+                is_fully_consumed=False,
+            )
+
+    @transaction.atomic
+    def consume_materials(self, user=None):
+        """Planlanan hammadde miktarlarını stoktan çıkarır."""
+        StockMovement = apps.get_model("inventory", "StockMovement")
+        if self.status not in [self.Status.RELEASED, self.Status.IN_PROGRESS]:
+            raise ValueError(
+                "Malzeme tüketimi için emir 'Serbest Bırakıldı' veya 'Üretimde' durumunda olmalı."
+            )
+        if not self.raw_materials_warehouse:
+            raise ValueError("Hammadde deposu seçilmemiş.")
+        if not self.order_components.exists():
+            self.build_components_from_bom()
+        for component in self.order_components.all():
+            if component.is_fully_consumed:
+                continue
+            StockMovement.objects.create(
+                product=component.component,
+                warehouse=self.raw_materials_warehouse,
+                movement_type=StockMovement.MovementType.OUT,
+                quantity=component.required_quantity,
+                reference_type="production_order",
+                reference_id=self.pk,
+                note=f"Üretim emri {self.order_number} malzeme tüketimi",
+            )
+            self._update_stock(
+                component.component,
+                self.raw_materials_warehouse,
+                -component.required_quantity,
+            )
+            component.consumed_quantity = component.required_quantity
+            component.is_fully_consumed = True
+            component.save(
+                update_fields=["consumed_quantity", "is_fully_consumed"]
+            )
+
+    @transaction.atomic
+    def complete_production(self, user=None):
+        """Üretimi tamamlar; mamul girişi ve kalan malzeme tüketimini yapar."""
+        StockMovement = apps.get_model("inventory", "StockMovement")
+        if self.status not in [self.Status.IN_PROGRESS, self.Status.QUALITY_CHECK]:
+            raise ValueError(
+                "Üretim tamamlanabilmesi için emir 'Üretimde' veya 'Kalite Kontrolde' olmalı."
+            )
+        if not self.finished_goods_warehouse:
+            raise ValueError("Mamul deposu seçilmemiş.")
+        if self.order_components.filter(is_fully_consumed=False).exists():
+            self.consume_materials(user=user)
+        self.status = self.Status.COMPLETED
+        self.produced_quantity = self.planned_quantity
+        self.actual_end_date = timezone.now()
+        self.save(
+            update_fields=[
+                "status",
+                "produced_quantity",
+                "actual_end_date",
+                "updated_at",
+            ]
+        )
+        StockMovement.objects.create(
+            product=self.product,
+            warehouse=self.finished_goods_warehouse,
+            movement_type=StockMovement.MovementType.IN,
+            quantity=self.produced_quantity,
+            reference_type="production_order",
+            reference_id=self.pk,
+            note=f"Üretim emri {self.order_number} mamul girişi",
+        )
+        self._update_stock(
+            self.product,
+            self.finished_goods_warehouse,
+            self.produced_quantity,
+        )
+
+    def _update_stock(self, product, warehouse, quantity_delta):
+        Stock = apps.get_model("inventory", "Stock")
+        stock, _ = Stock.objects.get_or_create(
+            product=product,
+            warehouse=warehouse,
+            defaults={
+                "quantity": Decimal("0"),
+                "reserved_quantity": Decimal("0"),
+            },
+        )
+        stock.quantity += quantity_delta
+        if stock.quantity < 0:
+            raise ValueError(f"Stok yetersiz: {product} ({warehouse})")
+        stock.save(update_fields=["quantity", "updated_at"])
     def __str__(self):
         return f"{self.order_number} - {self.product.name} ({self.planned_quantity} Adet)"
 

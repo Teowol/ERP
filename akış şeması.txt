@@ -1,0 +1,25 @@
+Satış tahmini / mağaza talebi
+        ↓
+Üretim planlama
+        ↓
+Malzeme ihtiyaç planlama
+        ↓
+Satın alma
+        ↓
+Tedarikçiden fabrikaya mal kabul
+        ↓
+Giriş kalite kontrolü
+        ↓
+Ham madde depolama
+        ↓
+Yarı mamul üretimi
+        ↓
+Ayakkabı montajı
+        ↓
+Üretim kalite kontrolü
+        ↓
+Mamul depolama
+        ↓
+Mağaza siparişi
+        ↓
+Sevkiyat ve teslimat

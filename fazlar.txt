@@ -1,0 +1,45 @@
+Faz 1 — ERP çekirdeği
+    Django
+    PostgreSQL
+    Django Templates
+    Bootstrap
+    JavaScript
+    NGINX
+    Gunicorn
+    Docker ile PostgreSQL ve Redis
+Faz 2 — Temel iş modülleri
+    Inventory
+    Catalog
+    Procurement
+    Production
+    Quality
+    Distribution
+Faz 3 — Arka plan işlemleri
+    Celery
+    Redis
+    E-posta ve bildirim görevleri
+    Rapor üretimi
+    Stok kontrol görevleri
+Faz 4 — Operasyonel geliştirmeler
+    Maliyet
+    Bakım
+    Barkod
+    Lot takibi
+    Fire takibi
+    Dashboard
+    Yetkilendirme
+    Audit log
+Faz 5 — İzleme
+    Sentry
+    Prometheus
+    Grafana
+    Sistem ve uygulama metrikleri
+Faz 6 — Yapay zekâ
+    Local LLM bağlantısı
+    LLM servis katmanı
+    Embeddings
+    RAG
+    Vector search
+    Function calling
+    ERP agent
+    Onaylı otomasyonlar

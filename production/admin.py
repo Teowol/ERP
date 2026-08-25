@@ -1,4 +1,4 @@
-from django.contrib import admin
+from django.contrib import admin, messages
 
 from production.models import (
     BOMItem,
@@ -11,6 +11,42 @@ from production.models import (
     RoutingOperation,
     WorkCenter,
 )
+
+
+@admin.action(description="Seçili emirler için malzeme tüketimi kaydet")
+def consume_materials_action(modeladmin, request, queryset):
+    for order in queryset:
+        try:
+            order.consume_materials(user=request.user)
+            modeladmin.message_user(
+                request,
+                f"{order.order_number} için malzeme tüketimi kaydedildi.",
+                messages.SUCCESS,
+            )
+        except Exception as e:
+            modeladmin.message_user(
+                request,
+                f"{order.order_number} hatası: {e}",
+                messages.ERROR,
+            )
+
+
+@admin.action(description="Seçili emirleri tamamla (mamul girişi yap)")
+def complete_production_action(modeladmin, request, queryset):
+    for order in queryset:
+        try:
+            order.complete_production(user=request.user)
+            modeladmin.message_user(
+                request,
+                f"{order.order_number} tamamlandı.",
+                messages.SUCCESS,
+            )
+        except Exception as e:
+            modeladmin.message_user(
+                request,
+                f"{order.order_number} hatası: {e}",
+                messages.ERROR,
+            )
 
 
 class RoutingOperationInline(admin.TabularInline):
@@ -137,7 +173,10 @@ class ProductionOrderAdmin(admin.ModelAdmin):
         "status",
         "priority",
         "planned_start_date",
+        "raw_materials_warehouse",
+        "finished_goods_warehouse",
     ]
     list_filter = ["status", "priority", "production_line"]
     search_fields = ["order_number", "product__name", "product__code"]
     inlines = [ProductionOrderOperationInline, ProductionOrderComponentInline]
+    actions = [consume_materials_action, complete_production_action]
