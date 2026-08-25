@@ -1,5 +1,6 @@
 from decimal import Decimal
 
+from django.conf import settings
 from django.core.validators import MinValueValidator
 from django.db import models
 
@@ -9,19 +10,9 @@ from inventory.models import Product
 class ProductionLine(models.Model):
     """Fabrikadaki üretim hatları."""
 
-    code = models.CharField(
-        max_length=30,
-        unique=True,
-        verbose_name="Hat Kodu",
-    )
-    name = models.CharField(
-        max_length=150,
-        verbose_name="Hat Adı",
-    )
-    description = models.TextField(
-        blank=True,
-        verbose_name="Açıklama",
-    )
+    code = models.CharField(max_length=30, unique=True, verbose_name="Hat Kodu")
+    name = models.CharField(max_length=150, verbose_name="Hat Adı")
+    description = models.TextField(blank=True, verbose_name="Açıklama")
     capacity_per_day = models.DecimalField(
         max_digits=14,
         decimal_places=3,
@@ -29,10 +20,7 @@ class ProductionLine(models.Model):
         validators=[MinValueValidator(Decimal("0"))],
         verbose_name="Günlük Kapasite",
     )
-    is_active = models.BooleanField(
-        default=True,
-        verbose_name="Aktif mi?",
-    )
+    is_active = models.BooleanField(default=True, verbose_name="Aktif mi?")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -48,26 +36,15 @@ class ProductionLine(models.Model):
 class WorkCenter(models.Model):
     """Üretim hattı üzerindeki makine veya iş istasyonu."""
 
-    code = models.CharField(
-        max_length=30,
-        unique=True,
-        verbose_name="İş Merkezi Kodu",
-    )
-    name = models.CharField(
-        max_length=150,
-        verbose_name="İş Merkezi Adı",
-    )
+    code = models.CharField(max_length=30, unique=True, verbose_name="İş Merkezi Kodu")
+    name = models.CharField(max_length=150, verbose_name="İş Merkezi Adı")
     production_line = models.ForeignKey(
         ProductionLine,
         on_delete=models.PROTECT,
         related_name="work_centers",
         verbose_name="Üretim Hattı",
     )
-    machine_name = models.CharField(
-        max_length=150,
-        blank=True,
-        verbose_name="Makine Adı",
-    )
+    machine_name = models.CharField(max_length=150, blank=True, verbose_name="Makine Adı")
     capacity_per_hour = models.DecimalField(
         max_digits=14,
         decimal_places=3,
@@ -75,10 +52,7 @@ class WorkCenter(models.Model):
         validators=[MinValueValidator(Decimal("0"))],
         verbose_name="Saatlik Kapasite",
     )
-    is_active = models.BooleanField(
-        default=True,
-        verbose_name="Aktif mi?",
-    )
+    is_active = models.BooleanField(default=True, verbose_name="Aktif mi?")
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -109,30 +83,16 @@ class Routing(models.Model):
         validators=[MinValueValidator(1)],
         verbose_name="Versiyon",
     )
-    name = models.CharField(
-        max_length=150,
-        verbose_name="Rota Adı",
-    )
+    name = models.CharField(max_length=150, verbose_name="Rota Adı")
     status = models.CharField(
         max_length=20,
         choices=Status.choices,
         default=Status.DRAFT,
         verbose_name="Durum",
     )
-    description = models.TextField(
-        blank=True,
-        verbose_name="Açıklama",
-    )
-    valid_from = models.DateField(
-        null=True,
-        blank=True,
-        verbose_name="Geçerlilik Başlangıcı",
-    )
-    valid_until = models.DateField(
-        null=True,
-        blank=True,
-        verbose_name="Geçerlilik Bitişi",
-    )
+    description = models.TextField(blank=True, verbose_name="Açıklama")
+    valid_from = models.DateField(null=True, blank=True, verbose_name="Geçerlilik Başlangıcı")
+    valid_until = models.DateField(null=True, blank=True, verbose_name="Geçerlilik Bitişi")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -164,10 +124,7 @@ class RoutingOperation(models.Model):
         validators=[MinValueValidator(1)],
         verbose_name="Sıra",
     )
-    name = models.CharField(
-        max_length=150,
-        verbose_name="Operasyon Adı",
-    )
+    name = models.CharField(max_length=150, verbose_name="Operasyon Adı")
     work_center = models.ForeignKey(
         WorkCenter,
         on_delete=models.PROTECT,
@@ -188,10 +145,7 @@ class RoutingOperation(models.Model):
         validators=[MinValueValidator(Decimal("0"))],
         verbose_name="Çevrim Süresi (Dakika)",
     )
-    description = models.TextField(
-        blank=True,
-        verbose_name="Açıklama",
-    )
+    description = models.TextField(blank=True, verbose_name="Açıklama")
 
     class Meta:
         constraints = [
@@ -227,10 +181,7 @@ class BillOfMaterial(models.Model):
         validators=[MinValueValidator(1)],
         verbose_name="Reçete Versiyonu",
     )
-    name = models.CharField(
-        max_length=150,
-        verbose_name="Reçete Adı",
-    )
+    name = models.CharField(max_length=150, verbose_name="Reçete Adı")
     status = models.CharField(
         max_length=20,
         choices=Status.choices,
@@ -244,20 +195,9 @@ class BillOfMaterial(models.Model):
         validators=[MinValueValidator(Decimal("0.001"))],
         verbose_name="Üretim Çıktı Miktarı",
     )
-    description = models.TextField(
-        blank=True,
-        verbose_name="Açıklama",
-    )
-    valid_from = models.DateField(
-        null=True,
-        blank=True,
-        verbose_name="Geçerlilik Başlangıcı",
-    )
-    valid_until = models.DateField(
-        null=True,
-        blank=True,
-        verbose_name="Geçerlilik Bitişi",
-    )
+    description = models.TextField(blank=True, verbose_name="Açıklama")
+    valid_from = models.DateField(null=True, blank=True, verbose_name="Geçerlilik Başlangıcı")
+    valid_until = models.DateField(null=True, blank=True, verbose_name="Geçerlilik Bitişi")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -310,10 +250,7 @@ class BOMItem(models.Model):
         validators=[MinValueValidator(1)],
         verbose_name="Kullanıldığı Operasyon Sırası",
     )
-    description = models.TextField(
-        blank=True,
-        verbose_name="Açıklama",
-    )
+    description = models.TextField(blank=True, verbose_name="Açıklama")
 
     class Meta:
         constraints = [
@@ -328,3 +265,185 @@ class BOMItem(models.Model):
 
     def __str__(self):
         return f"{self.bill_of_material} - {self.component}"
+
+
+class ProductionOrder(models.Model):
+    """Üretim Emri (İş Emri)."""
+
+    class Status(models.TextChoices):
+        PLANNED = "planned", "Planlandı"
+        RELEASED = "released", "Serbest Bırakıldı / Başlatılabilir"
+        IN_PROGRESS = "in_progress", "Üretimde"
+        QUALITY_CHECK = "quality_check", "Kalite Kontrolde"
+        COMPLETED = "completed", "Tamamlandı"
+        CANCELLED = "cancelled", "İptal Edildi"
+
+    class Priority(models.TextChoices):
+        LOW = "low", "Düşük"
+        MEDIUM = "medium", "Normal"
+        HIGH = "high", "Yüksek"
+        URGENT = "urgent", "Acil"
+
+    order_number = models.CharField(max_length=30, unique=True, verbose_name="Üretim Emri No")
+    product = models.ForeignKey(
+        Product,
+        on_delete=models.PROTECT,
+        related_name="production_orders",
+        verbose_name="Üretilecek Ürün",
+    )
+    bill_of_material = models.ForeignKey(
+        BillOfMaterial,
+        on_delete=models.PROTECT,
+        related_name="production_orders",
+        verbose_name="Kullanılacak Reçete",
+    )
+    routing = models.ForeignKey(
+        Routing,
+        on_delete=models.PROTECT,
+        related_name="production_orders",
+        verbose_name="Kullanılacak Rota",
+    )
+    production_line = models.ForeignKey(
+        ProductionLine,
+        on_delete=models.PROTECT,
+        related_name="production_orders",
+        verbose_name="Üretim Hattı",
+    )
+    planned_quantity = models.DecimalField(
+        max_digits=14,
+        decimal_places=3,
+        validators=[MinValueValidator(Decimal("0.001"))],
+        verbose_name="Planlanan Miktar",
+    )
+    produced_quantity = models.DecimalField(
+        max_digits=14,
+        decimal_places=3,
+        default=Decimal("0"),
+        validators=[MinValueValidator(Decimal("0"))],
+        verbose_name="Üretilen Miktar",
+    )
+    scrapped_quantity = models.DecimalField(
+        max_digits=14,
+        decimal_places=3,
+        default=Decimal("0"),
+        validators=[MinValueValidator(Decimal("0"))],
+        verbose_name="Fire Miktarı",
+    )
+    status = models.CharField(
+        max_length=20,
+        choices=Status.choices,
+        default=Status.PLANNED,
+        verbose_name="Durum",
+    )
+    priority = models.CharField(
+        max_length=10,
+        choices=Priority.choices,
+        default=Priority.MEDIUM,
+        verbose_name="Öncelik",
+    )
+    planned_start_date = models.DateTimeField(verbose_name="Planlanan Başlangıç")
+    planned_end_date = models.DateTimeField(verbose_name="Planlanan Bitiş")
+    actual_start_date = models.DateTimeField(null=True, blank=True, verbose_name="Gerçekleşen Başlangıç")
+    actual_end_date = models.DateTimeField(null=True, blank=True, verbose_name="Gerçekleşen Bitiş")
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        related_name="created_production_orders",
+        verbose_name="Oluşturan",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-planned_start_date", "-priority"]
+        verbose_name = "Üretim Emri"
+        verbose_name_plural = "Üretim Emirleri"
+
+    def __str__(self):
+        return f"{self.order_number} - {self.product.name} ({self.planned_quantity} Adet)"
+
+
+class ProductionOrderOperation(models.Model):
+    """Üretim emri içerisindeki operasyonel aşamaların takibi."""
+
+    class Status(models.TextChoices):
+        PENDING = "pending", "Bekliyor"
+        IN_PROGRESS = "in_progress", "İşlemde"
+        COMPLETED = "completed", "Tamamlandı"
+        PAUSED = "paused", "Duraklatıldı"
+
+    production_order = models.ForeignKey(
+        ProductionOrder,
+        on_delete=models.CASCADE,
+        related_name="order_operations",
+        verbose_name="Üretim Emri",
+    )
+    routing_operation = models.ForeignKey(
+        RoutingOperation,
+        on_delete=models.PROTECT,
+        related_name="order_operations",
+        verbose_name="Rota Operasyonu",
+    )
+    status = models.CharField(
+        max_length=20,
+        choices=Status.choices,
+        default=Status.PENDING,
+        verbose_name="Durum",
+    )
+    completed_quantity = models.DecimalField(
+        max_digits=14,
+        decimal_places=3,
+        default=Decimal("0"),
+        verbose_name="Tamamlanan Miktar",
+    )
+    actual_start_time = models.DateTimeField(null=True, blank=True, verbose_name="Başlama Zamanı")
+    actual_end_time = models.DateTimeField(null=True, blank=True, verbose_name="Bitiş Zamanı")
+    operator_notes = models.TextField(blank=True, verbose_name="Operatör Notları")
+
+    class Meta:
+        ordering = ["production_order", "routing_operation__sequence"]
+        verbose_name = "Üretim Emri Operasyonu"
+        verbose_name_plural = "Üretim Emri Operasyonları"
+
+    def __str__(self):
+        return f"{self.production_order.order_number} - {self.routing_operation.name}"
+
+
+class ProductionOrderComponent(models.Model):
+    """Üretim emrinde tüketilecek planlanan ve gerçekleşen hammadde miktarları."""
+
+    production_order = models.ForeignKey(
+        ProductionOrder,
+        on_delete=models.CASCADE,
+        related_name="order_components",
+        verbose_name="Üretim Emri",
+    )
+    component = models.ForeignKey(
+        Product,
+        on_delete=models.PROTECT,
+        related_name="production_requirements",
+        verbose_name="Hammadde / Yarı Mamul",
+    )
+    required_quantity = models.DecimalField(
+        max_digits=14,
+        decimal_places=4,
+        validators=[MinValueValidator(Decimal("0.0001"))],
+        verbose_name="Gereken Miktar",
+    )
+    consumed_quantity = models.DecimalField(
+        max_digits=14,
+        decimal_places=4,
+        default=Decimal("0"),
+        verbose_name="Tüketilen Miktar",
+    )
+    is_fully_consumed = models.BooleanField(
+        default=False,
+        verbose_name="Tamamı Tüketildi mi?",
+    )
+
+    class Meta:
+        verbose_name = "Üretim Emri Hammaddesi"
+        verbose_name_plural = "Üretim Emri Hammaddeleri"
+
+    def __str__(self):
+        return f"{self.production_order.order_number} - {self.component.name}"

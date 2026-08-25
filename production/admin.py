@@ -4,10 +4,33 @@ from production.models import (
     BOMItem,
     BillOfMaterial,
     ProductionLine,
+    ProductionOrder,
+    ProductionOrderComponent,
+    ProductionOrderOperation,
     Routing,
     RoutingOperation,
     WorkCenter,
 )
+
+
+class RoutingOperationInline(admin.TabularInline):
+    model = RoutingOperation
+    extra = 1
+
+
+class BOMItemInline(admin.TabularInline):
+    model = BOMItem
+    extra = 1
+
+
+class ProductionOrderOperationInline(admin.TabularInline):
+    model = ProductionOrderOperation
+    extra = 0
+
+
+class ProductionOrderComponentInline(admin.TabularInline):
+    model = ProductionOrderComponent
+    extra = 0
 
 
 @admin.register(ProductionLine)
@@ -37,11 +60,6 @@ class WorkCenterAdmin(admin.ModelAdmin):
     search_fields = ["code", "name", "machine_name"]
 
 
-class RoutingOperationInline(admin.TabularInline):
-    model = RoutingOperation
-    extra = 1
-
-
 @admin.register(Routing)
 class RoutingAdmin(admin.ModelAdmin):
     list_display = [
@@ -55,27 +73,6 @@ class RoutingAdmin(admin.ModelAdmin):
     list_filter = ["status", "product"]
     search_fields = ["product__code", "product__name", "name"]
     inlines = [RoutingOperationInline]
-
-
-class BOMItemInline(admin.TabularInline):
-    model = BOMItem
-    extra = 1
-
-
-@admin.register(BillOfMaterial)
-class BillOfMaterialAdmin(admin.ModelAdmin):
-    list_display = [
-        "product",
-        "version",
-        "name",
-        "status",
-        "output_quantity",
-        "valid_from",
-        "valid_until",
-    ]
-    list_filter = ["status", "product"]
-    search_fields = ["product__code", "product__name", "name"]
-    inlines = [BOMItemInline]
 
 
 @admin.register(RoutingOperation)
@@ -96,6 +93,22 @@ class RoutingOperationAdmin(admin.ModelAdmin):
     ]
 
 
+@admin.register(BillOfMaterial)
+class BillOfMaterialAdmin(admin.ModelAdmin):
+    list_display = [
+        "product",
+        "version",
+        "name",
+        "status",
+        "output_quantity",
+        "valid_from",
+        "valid_until",
+    ]
+    list_filter = ["status", "product"]
+    search_fields = ["product__code", "product__name", "name"]
+    inlines = [BOMItemInline]
+
+
 @admin.register(BOMItem)
 class BOMItemAdmin(admin.ModelAdmin):
     list_display = [
@@ -111,3 +124,20 @@ class BOMItemAdmin(admin.ModelAdmin):
         "component__code",
         "component__name",
     ]
+
+
+@admin.register(ProductionOrder)
+class ProductionOrderAdmin(admin.ModelAdmin):
+    list_display = [
+        "order_number",
+        "product",
+        "production_line",
+        "planned_quantity",
+        "produced_quantity",
+        "status",
+        "priority",
+        "planned_start_date",
+    ]
+    list_filter = ["status", "priority", "production_line"]
+    search_fields = ["order_number", "product__name", "product__code"]
+    inlines = [ProductionOrderOperationInline, ProductionOrderComponentInline]
