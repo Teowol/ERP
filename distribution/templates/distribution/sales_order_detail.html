@@ -69,6 +69,7 @@
 
         <div class="actions">
             {% if order.status == "draft" %}
+            <a href="{% url 'distribution:sales_order_edit' order.pk %}" class="btn" style="background-color: var(--accent); color: #fff;">Siparişi Düzenle</a>
             <form method="post" action="{% url 'distribution:sales_order_confirm' order.pk %}" style="display:inline;">
                 {% csrf_token %}
                 <button type="submit" class="btn btn-success" onclick="return confirm('Siparişi onaylayıp stok rezervasyonu yapmak istiyor musunuz?')">Onayla & Rezerve Et</button>
@@ -126,6 +127,7 @@
                         <th>Üretilen</th>
                         <th>Sevk Edilen</th>
                         <th>Depo Stoku</th>
+                        <th>İşlem</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -142,6 +144,16 @@
                                 {{ stock_map|get_item:line.pk }} {{ line.product.unit }}
                             {% else %}
                                 -
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if order.status == "confirmed" or order.status == "in_production" %}
+                            <form method="post" action="{% url 'distribution:create_production_order_from_line' line.pk %}" style="display:inline;">
+                                {% csrf_token %}
+                                <button type="submit" class="btn" style="background-color:#6366f1; color:#fff; padding:0.35rem 0.6rem; font-size:0.75rem;" onclick="return confirm('Bu kalem için Reçete ve Rota bazlı Üretim Emri oluşturulsun mu?')">Üretim Emri Aç</button>
+                            </form>
+                            {% else %}
+                            -
                             {% endif %}
                         </td>
                     </tr>

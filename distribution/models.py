@@ -130,3 +130,97 @@ class SalesOrderLine(models.Model):
 
     def __str__(self):
         return f"{self.product} - {self.quantity}"
+
+
+class Invoice(models.Model):
+    """Satış siparişine bağlı fatura kaydı."""
+
+    class Status(models.TextChoices):
+        DRAFT = "draft", "Taslak"
+        ISSUED = "issued", "Düzenlendi"
+        PAID = "paid", "Ödendi"
+        CANCELLED = "cancelled", "İptal"
+
+    invoice_number = models.CharField(
+        max_length=50,
+        unique=True,
+        verbose_name="Fatura Numarası",
+    )
+    sales_order = models.OneToOneField(
+        SalesOrder,
+        on_delete=models.CASCADE,
+        related_name="invoice",
+        verbose_name="Satış Siparişi",
+    )
+    customer = models.ForeignKey(
+        Customer,
+        on_delete=models.PROTECT,
+        verbose_name="Müşteri",
+    )
+    issue_date = models.DateField(
+        verbose_name="Fatura Tarihi",
+    )
+    due_date = models.DateField(
+        null=True,
+        blank=True,
+        verbose_name="Vade Tarihi",
+    )
+    subtotal = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        default=0,
+        verbose_name="Ara Toplam",
+    )
+    tax_rate = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        default=20,
+        verbose_name="KDV Oranı (%)",
+    )
+    tax_amount = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        default=0,
+        verbose_name="KDV Tutarı",
+    )
+    total_amount = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        default=0,
+        verbose_name="Genel Toplam",
+    )
+    status = models.CharField(
+        max_length=20,
+        choices=Status.choices,
+        default=Status.DRAFT,
+        verbose_name="Durum",
+    )
+    notes = models.TextField(
+        blank=True,
+        verbose_name="Notlar",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Fatura"
+        verbose_name_plural = "Faturalar"
+        ordering = ["-issue_date", "-invoice_number"]
+
+    def __str__(self):
+        return f"{self.invoice_number} - {self.customer}"
+
+    def save(self, *args, **kwargs):
+        if not self.invoice_number:
+            from django.utils import timezone
+            year = timezone.now().year
+            last = Invoice.objects.filter(
+                invoice_number__startswith=f"INV-{year}-"
+            ).order_by("-invoice_number").first()
+            if last:
+                last_num = int(last.invoice_number.split("-")[-1])
+                new_num = last_num + 1
+            else:
+                new_num = 1
+            self.invoice_number = f"INV-{year}-{new_num:04d}"
+        super().save(*args, **kwargs)

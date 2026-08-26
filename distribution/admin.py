@@ -30,3 +30,20 @@ class SalesOrderAdmin(admin.ModelAdmin):
     list_filter = ["status", "created_at"]
     search_fields = ["order_number", "customer__name", "customer__code"]
     inlines = [SalesOrderLineInline]
+
+from .models import Invoice
+
+
+@admin.register(Invoice)
+class InvoiceAdmin(admin.ModelAdmin):
+    list_display = [
+        "invoice_number",
+        "sales_order",
+        "customer",
+        "issue_date",
+        "total_amount",
+        "status",
+    ]
+    list_filter = ["status", "issue_date"]
+    search_fields = ["invoice_number", "customer__name", "sales_order__order_number"]
+    readonly_fields = ["invoice_number", "created_at", "updated_at"]
