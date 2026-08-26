@@ -122,6 +122,7 @@
         <h1>Sneaker ERP - Üretim Yönetimi</h1>
         <div>
             <a href="{% url 'production:order_list' %}">Emir Listesi</a>
+            <a href="{% url 'production:operation_list' %}">Operasyonlar</a>
             <a href="/admin/">Django Admin</a>
         </div>
     </div>
@@ -288,6 +289,7 @@
                         <th>Durum</th>
                         <th>Tamamlanan</th>
                         <th>Başlama / Bitiş</th>
+                        <th>Aksiyon</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -301,6 +303,31 @@
                         <td>
                             {{ op.actual_start_time|date:"d.m.Y H:i"|default:"-" }} /
                             {{ op.actual_end_time|date:"d.m.Y H:i"|default:"-" }}
+                        </td>
+                        <td>
+                            {% if op.status == "pending" %}
+                            <form method="post" action="{% url 'production:operation_action' op.pk 'start' %}" style="display:inline;">
+                                {% csrf_token %}
+                                <button type="submit" class="btn btn-start" onclick="return confirm('Operasyonu başlatmak istediğinize emin misiniz?')">Başlat</button>
+                            </form>
+                            {% elif op.status == "in_progress" %}
+                            <form method="post" action="{% url 'production:operation_action' op.pk 'pause' %}" style="display:inline;">
+                                {% csrf_token %}
+                                <button type="submit" class="btn btn-secondary" onclick="return confirm('Operasyonu duraklatmak istediğinize emin misiniz?')">Duraklat</button>
+                            </form>
+                            <form method="post" action="{% url 'production:operation_action' op.pk 'complete' %}" style="display:inline;">
+                                {% csrf_token %}
+                                <input type="number" step="0.001" name="completed_quantity" placeholder="Miktar" style="width:90px; padding:0.4rem; border-radius:6px; border:1px solid var(--border); margin-right:0.25rem;">
+                                <button type="submit" class="btn btn-complete" onclick="return confirm('Operasyonu tamamlamak istediğinize emin misiniz?')">Tamamla</button>
+                            </form>
+                            {% elif op.status == "paused" %}
+                            <form method="post" action="{% url 'production:operation_action' op.pk 'resume' %}" style="display:inline;">
+                                {% csrf_token %}
+                                <button type="submit" class="btn btn-start" onclick="return confirm('Operasyonu devam ettirmek istediğinize emin misiniz?')">Devam Ettir</button>
+                            </form>
+                            {% else %}
+                            <span class="info-value">-</span>
+                            {% endif %}
                         </td>
                     </tr>
                     {% endfor %}

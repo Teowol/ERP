@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Operasyon Takip Ekranı</title>
+    <style>
+        :root {
+            --primary: #1e293b;
+            --accent: #2563eb;
+            --bg: #f8fafc;
+            --card-bg: #ffffff;
+            --border: #e2e8f0;
+            --text: #0f172a;
+            --text-muted: #64748b;
+            --success: #16a34a;
+            --danger: #dc2626;
+            --badge-pending: #e2e8f0;
+            --badge-pending-txt: #334155;
+            --badge-progress: #fef3c7;
+            --badge-progress-txt: #92400e;
+            --badge-paused: #fee2e2;
+            --badge-paused-txt: #991b1b;
+            --badge-completed: #dcfce7;
+            --badge-completed-txt: #166534;
+        }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background-color: var(--bg); color: var(--text); margin: 0; padding: 0; }
+        .header { background-color: var(--primary); color: #fff; padding: 1rem 2rem; display: flex; justify-content: space-between; align-items: center; }
+        .header h1 { margin: 0; font-size: 1.25rem; font-weight: 600; }
+        .header a { color: #cbd5e1; text-decoration: none; font-size: 0.875rem; margin-left: 1rem; }
+        .header a:hover { color: #fff; }
+        .container { max-width: 1300px; margin: 2rem auto; padding: 0 1rem; }
+        .messages { margin-bottom: 1.5rem; }
+        .msg { padding: 0.75rem 1rem; border-radius: 6px; font-size: 0.875rem; margin-bottom: 0.5rem; }
+        .msg-success { background-color: #dcfce7; color: #166534; border: 1px solid #bbf7d0; }
+        .msg-error { background-color: #fee2e2; color: #991b1b; border: 1px solid #fecaca; }
+        .filters { display: flex; gap: 0.75rem; margin-bottom: 1.5rem; flex-wrap: wrap; }
+        .filters input, .filters select { padding: 0.5rem 0.75rem; border: 1px solid var(--border); border-radius: 6px; font-size: 0.875rem; }
+        .filters button { padding: 0.5rem 1rem; border-radius: 6px; border: none; background-color: var(--accent); color: #fff; cursor: pointer; font-size: 0.875rem; }
+        .card { background-color: var(--card-bg); border: 1px solid var(--border); border-radius: 8px; padding: 1.25rem; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+        table { width: 100%; border-collapse: collapse; text-align: left; font-size: 0.875rem; }
+        th { background-color: #f1f5f9; color: var(--text-muted); font-weight: 600; padding: 0.75rem 1rem; border-bottom: 1px solid var(--border); }
+        td { padding: 0.875rem 1rem; border-bottom: 1px solid var(--border); vertical-align: middle; }
+        tr:last-child td { border-bottom: none; }
+        .badge { display: inline-block; padding: 0.25rem 0.6rem; border-radius: 9999px; font-size: 0.75rem; font-weight: 600; }
+        .badge-pending { background-color: var(--badge-pending); color: var(--badge-pending-txt); }
+        .badge-in_progress { background-color: var(--badge-progress); color: var(--badge-progress-txt); }
+        .badge-paused { background-color: var(--badge-paused); color: var(--badge-paused-txt); }
+        .badge-completed { background-color: var(--badge-completed); color: var(--badge-completed-txt); }
+        .btn { padding: 0.4rem 0.8rem; border-radius: 6px; font-size: 0.8rem; font-weight: 500; cursor: pointer; border: none; }
+        .btn-start { background-color: var(--accent); color: #fff; }
+        .btn-secondary { background-color: #e2e8f0; color: var(--text); }
+        .btn-complete { background-color: var(--success); color: #fff; }
+        .empty-state { padding: 2rem 1rem; text-align: center; color: var(--text-muted); }
+        .order-link { color: var(--accent); text-decoration: none; font-weight: 600; }
+        .order-link:hover { text-decoration: underline; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Sneaker ERP - Operasyon Takip Ekranı</h1>
+        <div>
+            <a href="{% url 'production:order_list' %}">Emir Listesi</a>
+            <a href="/admin/">Django Admin</a>
+        </div>
+    </div>
+
+    <div class="container">
+        {% if messages %}
+        <div class="messages">
+            {% for message in messages %}
+            <div class="msg msg-{{ message.tags }}">{{ message }}</div>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        <form method="get" class="filters">
+            <input type="text" name="order" placeholder="Emir No / Ürün Ara" value="{{ current_order }}">
+            <select name="status">
+                <option value="">Tüm Durumlar</option>
+                {% for value, label in status_choices %}
+                <option value="{{ value }}" {% if current_status == value %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+            </select>
+            <button type="submit">Filtrele</button>
+        </form>
+
+        <div class="card">
+            {% if operations %}
+            <table>
+                <thead>
+                    <tr>
+                        <th>Üretim Emri</th>
+                        <th>Ürün</th>
+                        <th>Sıra</th>
+                        <th>Operasyon</th>
+                        <th>İş Merkezi</th>
+                        <th>Durum</th>
+                        <th>Tamamlanan</th>
+                        <th>Başlama / Bitiş</th>
+                        <th>Aksiyon</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for op in operations %}
+                    <tr>
+                        <td><a class="order-link" href="{% url 'production:order_detail' op.production_order.pk %}">{{ op.production_order.order_number }}</a></td>
+                        <td>{{ op.production_order.product.name }}</td>
+                        <td>{{ op.routing_operation.sequence }}</td>
+                        <td><strong>{{ op.routing_operation.name }}</strong></td>
+                        <td>{{ op.routing_operation.work_center.name }}</td>
+                        <td><span class="badge badge-{{ op.status }}">{{ op.get_status_display }}</span></td>
+                        <td>{{ op.completed_quantity }}</td>
+                        <td>
+                            {{ op.actual_start_time|date:"d.m.Y H:i"|default:"-" }} /
+                            {{ op.actual_end_time|date:"d.m.Y H:i"|default:"-" }}
+                        </td>
+                        <td>
+                            {% if op.status == "pending" %}
+                            <form method="post" action="{% url 'production:operation_action' op.pk 'start' %}" style="display:inline;">
+                                {% csrf_token %}
+                                <button type="submit" class="btn btn-start" onclick="return confirm('Operasyonu başlatmak istediğinize emin misiniz?')">Başlat</button>
+                            </form>
+                            {% elif op.status == "in_progress" %}
+                            <form method="post" action="{% url 'production:operation_action' op.pk 'pause' %}" style="display:inline;">
+                                {% csrf_token %}
+                                <button type="submit" class="btn btn-secondary" onclick="return confirm('Operasyonu duraklatmak istediğinize emin misiniz?')">Duraklat</button>
+                            </form>
+                            <form method="post" action="{% url 'production:operation_action' op.pk 'complete' %}" style="display:inline;">
+                                {% csrf_token %}
+                                <input type="number" step="0.001" name="completed_quantity" placeholder="Miktar" style="width:80px; padding:0.35rem; border-radius:6px; border:1px solid var(--border); margin-right:0.25rem;">
+                                <button type="submit" class="btn btn-complete" onclick="return confirm('Operasyonu tamamlamak istediğinize emin misiniz?')">Tamamla</button>
+                            </form>
+                            {% elif op.status == "paused" %}
+                            <form method="post" action="{% url 'production:operation_action' op.pk 'resume' %}" style="display:inline;">
+                                {% csrf_token %}
+                                <button type="submit" class="btn btn-start" onclick="return confirm('Operasyonu devam ettirmek istediğinize emin misiniz?')">Devam Ettir</button>
+                            </form>
+                            {% else %}
+                            <span>-</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <div class="empty-state">
+                <p>Filtreye uyan operasyon bulunamadı.</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</body>
+</html>

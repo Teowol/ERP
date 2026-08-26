@@ -567,21 +567,16 @@ class ProductionOrderOperation(models.Model):
         if self.status not in [self.Status.PENDING, self.Status.PAUSED]:
             raise ValueError("Operasyon 'Bekliyor' veya 'Duraklatıldı' durumunda ise başlatılabilir.")
         self.status = self.Status.IN_PROGRESS
-    @transaction.atomic
-    def start(self, user=None):
-        if self.status not in [self.Status.PENDING, self.Status.PAUSED]:
-            raise ValueError("Operasyon 'Bekliyor' veya 'Duraklatıldı' durumunda ise başlatılabilir.")
-        self.status = self.Status.IN_PROGRESS
         if not self.actual_start_time:
             self.actual_start_time = timezone.now()
-        self.save(update_fields=["status", "actual_start_time", "updated_at"])
+        self.save(update_fields=["status", "actual_start_time"])
 
     @transaction.atomic
     def pause(self, user=None):
         if self.status != self.Status.IN_PROGRESS:
             raise ValueError("Sadece 'İşlemde' durumundaki operasyon duraklatılabilir.")
         self.status = self.Status.PAUSED
-        self.save(update_fields=["status", "updated_at"])
+        self.save(update_fields=["status"])
 
     @transaction.atomic
     def complete(self, completed_quantity, user=None):
@@ -592,84 +587,7 @@ class ProductionOrderOperation(models.Model):
         self.status = self.Status.COMPLETED
         self.completed_quantity = completed_quantity
         self.actual_end_time = timezone.now()
-        self.save(update_fields=["status", "completed_quantity", "actual_end_time", "updated_at"])
-
-
-        if not self.actual_start_time:
-            self.actual_start_time = timezone.now()
-        self.save(update_fields=["status", "actual_start_time", "updated_at"])
-
-    @transaction.atomic
-    def pause(self, user=None):
-        if self.status != self.Status.IN_PROGRESS:
-            raise ValueError("Sadece 'İşlemde' durumundaki operasyon duraklatılabilir.")
-        self.status = self.Status.PAUSED
-        self.save(update_fields=["status", "updated_at"])
-
-    @transaction.atomic
-    def complete(self, completed_quantity, user=None):
-        if self.status != self.Status.IN_PROGRESS:
-            raise ValueError("Sadece 'İşlemde' durumundaki operasyon tamamlanabilir.")
-        if completed_quantity < 0:
-            raise ValueError("Tamamlanan miktar negatif olamaz.")
-        self.status = self.Status.COMPLETED
-        self.completed_quantity = completed_quantity
-        self.actual_end_time = timezone.now()
-        self.save(update_fields=["status", "completed_quantity", "actual_end_time", "updated_at"])
-
-    @transaction.atomic
-    def start(self, user=None):
-        if self.status not in [self.Status.PENDING, self.Status.PAUSED]:
-            raise ValueError("Operasyon 'Bekliyor' veya 'Duraklatıldı' durumunda ise başlatılabilir.")
-        self.status = self.Status.IN_PROGRESS
-        if not self.actual_start_time:
-            self.actual_start_time = timezone.now()
-        self.save(update_fields=["status", "actual_start_time", "updated_at"])
-
-    @transaction.atomic
-    def pause(self, user=None):
-        if self.status != self.Status.IN_PROGRESS:
-            raise ValueError("Sadece 'İşlemde' durumundaki operasyon duraklatılabilir.")
-        self.status = self.Status.PAUSED
-        self.save(update_fields=["status", "updated_at"])
-
-    @transaction.atomic
-    def complete(self, completed_quantity, user=None):
-        if self.status != self.Status.IN_PROGRESS:
-            raise ValueError("Sadece 'İşlemde' durumundaki operasyon tamamlanabilir.")
-        if completed_quantity < 0:
-            raise ValueError("Tamamlanan miktar negatif olamaz.")
-        self.status = self.Status.COMPLETED
-        self.completed_quantity = completed_quantity
-        self.actual_end_time = timezone.now()
-        self.save(update_fields=["status", "completed_quantity", "actual_end_time", "actual_end_time", "updated_at"])
-
-    @transaction.atomic
-    def start(self, user=None):
-        if self.status not in [self.Status.PENDING, self.Status.PAUSED]:
-            raise ValueError("Operasyon 'Bekliyor' veya 'Duraklatıldı' durumunda ise başlatılabilir.")
-        self.status = self.Status.IN_PROGRESS
-        if not self.actual_start_time:
-            self.actual_start_time = timezone.now()
-        self.save(update_fields=["status", "actual_start_time", "updated_at"])
-
-    @transaction.atomic
-    def pause(self, user=None):
-        if self.status != self.Status.IN_PROGRESS:
-            raise ValueError("Sadece 'İşlemde' durumundaki operasyon duraklatılabilir.")
-        self.status = self.Status.PAUSED
-        self.save(update_fields=["status", "updated_at"])
-
-    @transaction.atomic
-    def complete(self, completed_quantity, user=None):
-        if self.status != self.Status.IN_PROGRESS:
-            raise ValueError("Sadece 'İşlemde' durumundaki operasyon tamamlanabilir.")
-        if completed_quantity < 0:
-            raise ValueError("Tamamlanan miktar negatif olamaz.")
-        self.status = self.Status.COMPLETED
-        self.completed_quantity = completed_quantity
-        self.actual_end_time = timezone.now()
-        self.save(update_fields=["status", "completed_quantity", "actual_end_time", "updated_at"])
+        self.save(update_fields=["status", "completed_quantity", "actual_end_time"])
 
     def __str__(self):
         return f"{self.production_order.order_number} - {self.routing_operation.name}"

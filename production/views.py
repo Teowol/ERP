@@ -1,8 +1,9 @@
 from django.contrib import messages
 from django.shortcuts import render, get_object_or_404, redirect
 from django.db.models import Q
+from decimal import Decimal
 from django.views.decorators.http import require_POST
-from .models import ProductionOrder
+from .models import ProductionOrder, ProductionOrderOperation
 
 
 def order_list(request):
@@ -118,3 +119,163 @@ def _get_available_actions(order):
     if order.status == ProductionOrder.Status.QUALITY_CHECK:
         return ["complete", "cancel"]
     return []
+
+def operation_list(request):
+    """Tüm üretim emri operasyonlarını listeleme ve filtreleme."""
+    operations = ProductionOrderOperation.objects.select_related(
+        "production_order",
+        "routing_operation",
+        "routing_operation__work_center",
+    ).all()
+
+    order_filter = request.GET.get("order", "").strip()
+    status_filter = request.GET.get("status", "").strip()
+
+    if order_filter:
+        operations = operations.filter(
+            Q(production_order__order_number__icontains=order_filter) |
+            Q(production_order__product__name__icontains=order_filter)
+        )
+
+    if status_filter:
+        operations = operations.filter(status=status_filter)
+
+    context = {
+        "operations": operations,
+        "current_order": order_filter,
+        "current_status": status_filter,
+        "status_choices": ProductionOrderOperation.Status.choices,
+    }
+    return render(request, "production/operation_list.html", context)
+
+
+@require_POST
+def operation_action(request, pk, action):
+    """Üretim emri operasyonu üzerinde aksiyon çalıştırır."""
+    operation = get_object_or_404(
+        ProductionOrderOperation.objects.select_related("production_order"),
+        pk=pk,
+    )
+    order = operation.production_order
+    redirect_url = request.META.get("HTTP_REFERER") or "production:order_detail"
+
+    try:
+        if action == "start":
+            operation.start(user=request.user)
+            messages.success(request, f"{operation.routing_operation.name} başlatıldı.")
+        elif action == "pause":
+            operation.pause(user=request.user)
+            messages.success(request, f"{operation.routing_operation.name} duraklatıldı.")
+        elif action == "resume":
+            operation.start(user=request.user)
+            messages.success(request, f"{operation.routing_operation.name} devam ettirildi.")
+        elif action == "complete":
+            completed_quantity = request.POST.get("completed_quantity", "")
+            if completed_quantity == "":
+                completed_quantity = order.planned_quantity
+            else:
+                completed_quantity = Decimal(completed_quantity)
+            operation.complete(completed_quantity=completed_quantity, user=request.user)
+            messages.success(request, f"{operation.routing_operation.name} tamamlandı.")
+        else:
+            messages.error(request, "Bilinmeyen aksiyon.")
+    except Exception as exc:
+        messages.error(request, f"İşlem başarısız: {exc}")
+
+    if redirect_url == "production:order_detail":
+        return redirect(redirect_url, pk=order.pk)
+    return redirect(redirect_url)
+
+def operation_list(request):
+    """Tüm üretim emri operasyonlarını listeleme ve filtreleme."""
+    operations = ProductionOrderOperation.objects.select_related(
+        "production_order",
+        "production_order__product",
+        "routing_operation",
+        "routing_operation__work_center",
+    ).all()
+
+    order_filter = request.GET.get("order", "").strip()
+    status_filter = request.GET.get("status", "").strip()
+
+    if order_filter:
+        operations = operations.filter(
+            Q(production_order__order_number__icontains=order_filter)
+            | Q(production_order__product__name__icontains=order_filter)
+        )
+
+    if status_filter:
+        operations = operations.filter(status=status_filter)
+
+    context = {
+        "operations": operations,
+        "current_order": order_filter,
+        "current_status": status_filter,
+        "status_choices": ProductionOrderOperation.Status.choices,
+    }
+    return render(request, "production/operation_list.html", context)
+
+
+@require_POST
+def operation_action(request, pk, action):
+    """Üretim emri operasyonu üzerinde aksiyon çalıştırır."""
+    operation = get_object_or_404(
+        ProductionOrderOperation.objects.select_related(
+            "production_order",
+            "routing_operation",
+        ),
+        pk=pk,
+    )
+    order = operation.production_order
+
+    try:
+        if action == "start":
+            operation.start(user=request.user)
+            messages.success(
+                request,
+                f"{operation.routing_operation.name} başlatıldı.",
+            )
+
+        elif action == "pause":
+            operation.pause(user=request.user)
+            messages.success(
+                request,
+                f"{operation.routing_operation.name} duraklatıldı.",
+            )
+
+        elif action == "resume":
+            operation.start(user=request.user)
+            messages.success(
+                request,
+                f"{operation.routing_operation.name} devam ettirildi.",
+            )
+
+        elif action == "complete":
+            quantity_text = request.POST.get("completed_quantity", "").strip()
+
+            if quantity_text:
+                completed_quantity = Decimal(quantity_text)
+            else:
+                completed_quantity = order.planned_quantity
+
+            if completed_quantity > order.planned_quantity:
+                raise ValueError(
+                    "Tamamlanan miktar planlanan miktardan fazla olamaz."
+                )
+
+            operation.complete(
+                completed_quantity=completed_quantity,
+                user=request.user,
+            )
+            messages.success(
+                request,
+                f"{operation.routing_operation.name} tamamlandı.",
+            )
+
+        else:
+            messages.error(request, "Bilinmeyen operasyon aksiyonu.")
+
+    except Exception as exc:
+        messages.error(request, f"İşlem başarısız: {exc}")
+
+    return redirect("production:order_detail", pk=order.pk)
