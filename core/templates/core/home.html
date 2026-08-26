@@ -1,0 +1,344 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SPEEDERS ERP</title>
+
+    <style>
+        :root {
+            --navy: #071a33;
+            --navy-light: #102f55;
+            --gold: #c9a227;
+            --gold-light: #e4c766;
+            --background: #f4f6fa;
+            --text: #172033;
+            --muted: #718096;
+            --white: #ffffff;
+            --border: #e5e9f0;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            background: var(--background);
+            color: var(--text);
+            font-family: Arial, Helvetica, sans-serif;
+        }
+
+        .topbar {
+            min-height: 76px;
+            background: var(--navy);
+            color: var(--white);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px 5%;
+            box-shadow: 0 3px 14px rgba(7, 26, 51, 0.18);
+        }
+
+        .brand {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            text-decoration: none;
+            color: var(--white);
+        }
+
+        .brand img {
+            width: 52px;
+            height: 52px;
+            object-fit: contain;
+            border-radius: 8px;
+        }
+
+        .brand-text {
+            font-size: 21px;
+            font-weight: 700;
+            letter-spacing: 3px;
+        }
+
+        .brand-subtitle {
+            color: var(--gold-light);
+            font-size: 11px;
+            letter-spacing: 1px;
+            margin-top: 3px;
+        }
+
+        .admin-link {
+            border: 1px solid rgba(255, 255, 255, 0.32);
+            border-radius: 7px;
+            color: var(--white);
+            padding: 10px 16px;
+            text-decoration: none;
+            font-size: 14px;
+            transition: 0.2s ease;
+        }
+
+        .admin-link:hover {
+            color: var(--navy);
+            background: var(--gold-light);
+            border-color: var(--gold-light);
+        }
+
+        .container {
+            width: min(1180px, 90%);
+            margin: 0 auto;
+        }
+
+        .hero {
+            padding: 58px 0 42px;
+        }
+
+        .hero-label {
+            color: var(--gold);
+            font-size: 13px;
+            font-weight: 700;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            margin-bottom: 13px;
+        }
+
+        .hero h1 {
+            color: var(--navy);
+            font-size: clamp(30px, 5vw, 48px);
+            line-height: 1.12;
+            margin: 0 0 14px;
+        }
+
+        .hero p {
+            max-width: 670px;
+            color: var(--muted);
+            font-size: 17px;
+            line-height: 1.7;
+            margin: 0;
+        }
+
+        .section-title {
+            color: var(--navy);
+            font-size: 22px;
+            margin: 0 0 20px;
+        }
+
+        .module-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+            gap: 18px;
+            padding-bottom: 54px;
+        }
+
+        .module-card {
+            background: var(--white);
+            border: 1px solid var(--border);
+            border-radius: 13px;
+            min-height: 190px;
+            padding: 24px;
+            text-decoration: none;
+            color: var(--text);
+            box-shadow: 0 5px 18px rgba(24, 39, 75, 0.05);
+            transition: transform 0.2s ease, box-shadow 0.2s ease,
+                        border-color 0.2s ease;
+        }
+
+        .module-card:hover {
+            transform: translateY(-4px);
+            border-color: var(--gold);
+            box-shadow: 0 10px 25px rgba(24, 39, 75, 0.12);
+        }
+
+        .module-icon {
+            width: 44px;
+            height: 44px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 10px;
+            background: #eef3f9;
+            color: var(--navy-light);
+            font-size: 22px;
+            margin-bottom: 17px;
+        }
+
+        .module-card h3 {
+            color: var(--navy);
+            margin: 0 0 8px;
+            font-size: 18px;
+        }
+
+        .module-card p {
+            color: var(--muted);
+            font-size: 14px;
+            line-height: 1.5;
+            margin: 0;
+        }
+
+        .module-arrow {
+            display: block;
+            color: var(--gold);
+            font-size: 13px;
+            font-weight: 700;
+            margin-top: 18px;
+        }
+
+        .info-panel {
+            background: var(--navy);
+            border-radius: 14px;
+            color: var(--white);
+            display: flex;
+            justify-content: space-between;
+            gap: 25px;
+            align-items: center;
+            padding: 27px 32px;
+            margin-bottom: 55px;
+        }
+
+        .info-panel h2 {
+            margin: 0 0 8px;
+            font-size: 20px;
+        }
+
+        .info-panel p {
+            color: #cbd5e1;
+            margin: 0;
+            line-height: 1.5;
+            font-size: 14px;
+        }
+
+        .info-badge {
+            border: 1px solid var(--gold);
+            color: var(--gold-light);
+            border-radius: 8px;
+            padding: 11px 15px;
+            white-space: nowrap;
+            font-size: 13px;
+            font-weight: 700;
+        }
+
+        footer {
+            color: var(--muted);
+            border-top: 1px solid var(--border);
+            padding: 23px 0;
+            font-size: 13px;
+            text-align: center;
+        }
+
+        @media (max-width: 620px) {
+            .topbar {
+                padding: 10px 5%;
+            }
+
+            .brand-text {
+                font-size: 17px;
+                letter-spacing: 2px;
+            }
+
+            .brand-subtitle {
+                font-size: 9px;
+            }
+
+            .admin-link {
+                padding: 8px 10px;
+                font-size: 12px;
+            }
+
+            .hero {
+                padding-top: 40px;
+            }
+
+            .info-panel {
+                display: block;
+                padding: 23px;
+            }
+
+            .info-badge {
+                display: inline-block;
+                margin-top: 18px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header class="topbar">
+        <a href="/" class="brand">
+            <img src="{% static 'branding/logo.png' %}" alt="SPEEDERS logo">
+            <div>
+                <div class="brand-text">SPEEDERS</div>
+                <div class="brand-subtitle">ENTERPRISE RESOURCE PLANNING</div>
+            </div>
+        </a>
+
+        <a class="admin-link" href="/admin/">Yönetim Paneli</a>
+    </header>
+
+    <main class="container">
+        <section class="hero">
+            <div class="hero-label">SPEEDERS ERP</div>
+            <h1>Operasyonlarınızı<br>tek merkezden yönetin.</h1>
+            <p>
+                Üretimden kaliteye, stoktan satış siparişlerine kadar
+                işletmenizin temel süreçlerini güvenli ve düzenli biçimde
+                yönetin.
+            </p>
+        </section>
+
+        <section>
+            <h2 class="section-title">Modüller</h2>
+
+            <div class="module-grid">
+                <a class="module-card" href="/inventory/">
+                    <div class="module-icon">▣</div>
+                    <h3>Stok Yönetimi</h3>
+                    <p>Ürün, depo ve stok hareketlerini yönetin.</p>
+                    <span class="module-arrow">Modülü aç →</span>
+                </a>
+
+                <a class="module-card" href="/production/">
+                    <div class="module-icon">⚙</div>
+                    <h3>Üretim</h3>
+                    <p>Üretim emirlerini ve üretim süreçlerini takip edin.</p>
+                    <span class="module-arrow">Modülü aç →</span>
+                </a>
+
+                <a class="module-card" href="/quality/">
+                    <div class="module-icon">✓</div>
+                    <h3>Kalite</h3>
+                    <p>Kalite kontrollerini ve kontrol sonuçlarını yönetin.</p>
+                    <span class="module-arrow">Modülü aç →</span>
+                </a>
+
+                <a class="module-card" href="/distribution/">
+                    <div class="module-icon">↗</div>
+                    <h3>Dağıtım ve Satış</h3>
+                    <p>Müşteri, satış siparişi ve fatura süreçlerini yönetin.</p>
+                    <span class="module-arrow">Modülü aç →</span>
+                </a>
+
+                <a class="module-card" href="/admin/">
+                    <div class="module-icon">◆</div>
+                    <h3>Yönetim Paneli</h3>
+                    <p>Kullanıcıları, müşterileri ve sistem kayıtlarını yönetin.</p>
+                    <span class="module-arrow">Paneli aç →</span>
+                </a>
+            </div>
+        </section>
+
+        <section class="info-panel">
+            <div>
+                <h2>SPEEDERS ERP çalışma alanı</h2>
+                <p>
+                    Tüm operasyonel modüllere hızlı erişim için ana menüyü kullanın.
+                </p>
+            </div>
+            <div class="info-badge">SİSTEM AKTİF</div>
+        </section>
+    </main>
+
+    <footer>
+        © SPEEDERS ERP · Kurumsal Yönetim Sistemi
+    </footer>
+</body>
+</html>

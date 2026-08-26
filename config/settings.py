@@ -172,3 +172,11 @@ CELERY_RESULT_SERIALIZER = "json"
 CELERY_TIMEZONE = TIME_ZONE
 
 CELERY_BEAT_SCHEDULER = "django_celery_beat.schedulers:DatabaseScheduler"
+
+# Şirket / Fatura Bilgileri
+COMPANY_NAME = env("COMPANY_NAME", default="")
+COMPANY_ADDRESS = env("COMPANY_ADDRESS", default="")
+COMPANY_TAX_OFFICE = env("COMPANY_TAX_OFFICE", default="")
+COMPANY_TAX_NUMBER = env("COMPANY_TAX_NUMBER", default="")
+COMPANY_PHONE = env("COMPANY_PHONE", default="")
+COMPANY_EMAIL = env("COMPANY_EMAIL", default="")
