@@ -372,6 +372,14 @@ class ProductionOrder(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
+    reference_order_number = models.CharField(
+        max_length=50,
+        blank=True,
+        null=True,
+        verbose_name="Referans Sipariş No",
+        help_text="Bu üretim emrinin bağlı olduğu satış siparişi numarası.",
+    )
+
     class Meta:
         ordering = ["-planned_start_date", "-priority"]
         verbose_name = "Üretim Emri"

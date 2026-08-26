@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ product.name }} - Hareket Geçmişi</title>
+    <style>
+        :root { --primary: #1e293b; --accent: #2563eb; --bg: #f8fafc; --card-bg: #ffffff; --border: #e2e8f0; --text: #0f172a; --text-muted: #64748b; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background-color: var(--bg); color: var(--text); margin: 0; padding: 0; }
+        .header { background-color: var(--primary); color: #fff; padding: 1rem 2rem; display: flex; justify-content: space-between; align-items: center; }
+        .header h1 { margin: 0; font-size: 1.25rem; font-weight: 600; }
+        .header a { color: #cbd5e1; text-decoration: none; font-size: 0.875rem; margin-left: 1rem; }
+        .header a:hover { color: #fff; }
+        .container { max-width: 1100px; margin: 2rem auto; padding: 0 1rem; }
+        .page-title { font-size: 1.5rem; margin-bottom: 0.25rem; }
+        .subtitle { color: var(--text-muted); font-size: 0.875rem; margin-bottom: 1.5rem; }
+        .btn-back { display: inline-block; padding: 0.5rem 1rem; border-radius: 6px; background-color: #e2e8f0; color: var(--text); text-decoration: none; font-size: 0.875rem; margin-bottom: 1.5rem; }
+        .card { background-color: var(--card-bg); border: 1px solid var(--border); border-radius: 8px; padding: 1.25rem; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+        table { width: 100%; border-collapse: collapse; text-align: left; font-size: 0.875rem; }
+        th { background-color: #f1f5f9; color: var(--text-muted); font-weight: 600; padding: 0.75rem 1rem; border-bottom: 1px solid var(--border); }
+        td { padding: 0.875rem 1rem; border-bottom: 1px solid var(--border); vertical-align: middle; }
+        tr:last-child td { border-bottom: none; }
+        .badge { display: inline-block; padding: 0.25rem 0.6rem; border-radius: 9999px; font-size: 0.75rem; font-weight: 600; }
+        .badge-in { background-color: #dcfce7; color: #166534; }
+        .badge-out { background-color: #fee2e2; color: #991b1b; }
+        .badge-adjustment { background-color: #fef3c7; color: #92400e; }
+        .badge-transfer { background-color: #e0f2fe; color: #0369a1; }
+        .empty-state { padding: 2rem 1rem; text-align: center; color: var(--text-muted); }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Sneaker ERP - Envanter</h1>
+        <div>
+            <a href="{% url 'inventory:stock_level_list' %}">Stok Seviyeleri</a>
+            <a href="{% url 'inventory:stock_movement_list' %}">Hareketler</a>
+            <a href="/admin/">Django Admin</a>
+        </div>
+    </div>
+
+    <div class="container">
+        <a href="{% url 'inventory:stock_level_list' %}" class="btn-back">← Stok Seviyelerine Dön</a>
+        <h2 class="page-title">{{ product.code }} - {{ product.name }}</h2>
+        <p class="subtitle">Ürün hareket geçmişi</p>
+
+        <div class="card">
+            {% if movements %}
+            <table>
+                <thead>
+                    <tr>
+                        <th>Tarih</th>
+                        <th>Depo</th>
+                        <th>Hareket</th>
+                        <th>Miktar</th>
+                        <th>Referans</th>
+                        <th>Not</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for m in movements %}
+                    <tr>
+                        <td>{{ m.created_at|date:"d.m.Y H:i" }}</td>
+                        <td>{{ m.warehouse.name }}</td>
+                        <td><span class="badge badge-{{ m.movement_type }}">{{ m.get_movement_type_display }}</span></td>
+                        <td>{{ m.quantity }}</td>
+                        <td>{{ m.reference_type|default:"-" }} #{{ m.reference_id|default:"-" }}</td>
+                        <td>{{ m.note|default:"-" }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <div class="empty-state">
+                <p>Bu ürün için hareket kaydı bulunmuyor.</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</body>
+</html>

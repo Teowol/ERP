@@ -109,6 +109,9 @@
         .badge-cancelled { background-color: var(--badge-cancelled); color: var(--badge-cancelled-txt); }
         .badge-success { background-color: var(--badge-completed); color: var(--badge-completed-txt); }
         .badge-warning { background-color: var(--badge-progress); color: var(--badge-progress-txt); }
+        .badge-pass { background-color: #dcfce7; color: #166534; }
+        .badge-partial { background-color: #fef3c7; color: #92400e; }
+        .badge-fail { background-color: #fee2e2; color: #991b1b; }
 
         table { width: 100%; border-collapse: collapse; text-align: left; font-size: 0.875rem; }
         th { background-color: #f1f5f9; color: var(--text-muted); font-weight: 600; padding: 0.75rem 1rem; border-bottom: 1px solid var(--border); }
@@ -123,6 +126,8 @@
         <div>
             <a href="{% url 'production:order_list' %}">Emir Listesi</a>
             <a href="{% url 'production:operation_list' %}">Operasyonlar</a>
+            <a href="{% url 'quality:quality_check_list' %}">Kalite Kontrol</a>
+            <a href="{% url 'inventory:stock_level_list' %}">Stok</a>
             <a href="/admin/">Django Admin</a>
         </div>
     </div>
@@ -339,6 +344,103 @@
             </div>
             {% endif %}
         </div>
+
+        <div class="card">
+            <h3 class="card-title">Kalite Kontrol Kayıtları</h3>
+            {% if order.quality_checks.all %}
+            <table>
+                <thead>
+                    <tr>
+                        <th>Tarih</th>
+                        <th>Kontrol Eden</th>
+                        <th>Kontrol Edilen</th>
+                        <th>Kabul</th>
+                        <th>Red</th>
+                        <th>Fire</th>
+                        <th>Sonuç</th>
+                        <th>Red / Fire Nedeni</th>
+                        <th>Notlar</th>
+                        <th>İşlem</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for check in order.quality_checks.all %}
+                    <tr>
+                        <td>{{ check.check_date|date:"d.m.Y H:i" }}</td>
+                        <td>{{ check.checked_by.get_full_name|default:check.checked_by.username|default:"-" }}</td>
+                        <td>{{ check.checked_quantity }}</td>
+                        <td>{{ check.accepted_quantity }}</td>
+                        <td>{{ check.rejected_quantity }}</td>
+                        <td>{{ check.scrapped_quantity }}</td>
+                        <td><span class="badge badge-{{ check.result }}">{{ check.get_result_display }}</span></td>
+                        <td>{{ check.rejection_reason|default:"-" }}</td>
+                        <td>{{ check.notes|default:"-" }}</td>
+                        <td>
+                            {% if order.status == "quality_check" or order.status == "in_progress" %}
+                            <form method="post" action="{% url 'quality:quality_check_delete' check.pk %}" style="display:inline;" onsubmit="return confirm('Bu kalite kaydını silmek istediğinize emin misiniz?')">
+                                {% csrf_token %}
+                                <button type="submit" class="btn btn-cancel" style="padding:0.35rem 0.75rem; font-size:0.75rem;">Sil</button>
+                            </form>
+                            {% else %}
+                            <span>-</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <div class="empty-state">
+                <p>Henüz kalite kontrol kaydı bulunmuyor.</p>
+            </div>
+            {% endif %}
+        </div>
+
+        {% if order.status == "in_progress" or order.status == "quality_check" %}
+        <div class="card">
+            <h3 class="card-title">Yeni Kalite Kontrol Kaydı Ekle</h3>
+            <form method="post" action="{% url 'quality:quality_check_create' order.pk %}">
+                {% csrf_token %}
+                <div class="info-grid" style="margin-bottom:1rem;">
+                    <div class="info-item">
+                        <span class="info-label">Kontrol Edilen Miktar</span>
+                        <input type="number" step="0.001" name="checked_quantity" value="{{ order.planned_quantity }}" required style="padding:0.5rem; border:1px solid var(--border); border-radius:6px; width:100%;">
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">Kabul Edilen Miktar</span>
+                        <input type="number" step="0.001" name="accepted_quantity" value="{{ order.planned_quantity }}" required style="padding:0.5rem; border:1px solid var(--border); border-radius:6px; width:100%;">
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">Reddedilen Miktar</span>
+                        <input type="number" step="0.001" name="rejected_quantity" value="0" required style="padding:0.5rem; border:1px solid var(--border); border-radius:6px; width:100%;">
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">Fire Miktarı</span>
+                        <input type="number" step="0.001" name="scrapped_quantity" value="0" required style="padding:0.5rem; border:1px solid var(--border); border-radius:6px; width:100%;">
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">Sonuç</span>
+                        <select name="result" required style="padding:0.5rem; border:1px solid var(--border); border-radius:6px; width:100%;">
+                            {% for value, label in quality_result_choices %}
+                            <option value="{{ value }}">{{ label }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+                <div class="info-grid" style="margin-bottom:1rem;">
+                    <div class="info-item">
+                        <span class="info-label">Red / Fire Nedeni</span>
+                        <textarea name="rejection_reason" rows="2" style="padding:0.5rem; border:1px solid var(--border); border-radius:6px; width:100%;"></textarea>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">Kontrol Notları</span>
+                        <textarea name="notes" rows="2" style="padding:0.5rem; border:1px solid var(--border); border-radius:6px; width:100%;"></textarea>
+                    </div>
+                </div>
+                <button type="submit" class="btn btn-start">Kalite Kontrol Kaydı Ekle</button>
+            </form>
+        </div>
+        {% endif %}
     </div>
 </body>
 </html>

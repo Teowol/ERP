@@ -23,5 +23,8 @@ urlpatterns = [
     path('', home, name='home'),
     path('admin/', admin.site.urls),
     path('production/', include('production.urls')),
+    path('quality/', include('quality.urls')),
+    path('inventory/', include('inventory.urls')),
+    path('distribution/', include('distribution.urls')),
 ]
 

@@ -175,8 +175,9 @@ class ProductionOrderAdmin(admin.ModelAdmin):
         "planned_start_date",
         "raw_materials_warehouse",
         "finished_goods_warehouse",
+        "reference_order_number",
     ]
     list_filter = ["status", "priority", "production_line"]
-    search_fields = ["order_number", "product__name", "product__code"]
+    search_fields = ["order_number", "product__name", "product__code", "reference_order_number"]
     inlines = [ProductionOrderOperationInline, ProductionOrderComponentInline]
     actions = [consume_materials_action, complete_production_action]

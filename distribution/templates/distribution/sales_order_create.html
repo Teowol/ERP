@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Yeni Satış Siparişi</title>
+    <style>
+        :root { --primary: #1e293b; --accent: #2563eb; --bg: #f8fafc; --card-bg: #ffffff; --border: #e2e8f0; --text: #0f172a; --text-muted: #64748b; --success: #16a34a; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background-color: var(--bg); color: var(--text); margin: 0; padding: 0; }
+        .header { background-color: var(--primary); color: #fff; padding: 1rem 2rem; display: flex; justify-content: space-between; align-items: center; }
+        .header h1 { margin: 0; font-size: 1.25rem; font-weight: 600; }
+        .header a { color: #cbd5e1; text-decoration: none; font-size: 0.875rem; margin-left: 1rem; }
+        .header a:hover { color: #fff; }
+        .container { max-width: 900px; margin: 2rem auto; padding: 0 1rem; }
+        .page-title { font-size: 1.5rem; margin-bottom: 1.5rem; }
+        .btn-back { display: inline-block; padding: 0.5rem 1rem; border-radius: 6px; background-color: #e2e8f0; color: var(--text); text-decoration: none; font-size: 0.875rem; margin-bottom: 1.5rem; }
+        .card { background-color: var(--card-bg); border: 1px solid var(--border); border-radius: 8px; padding: 1.25rem; box-shadow: 0 1px 3px rgba(0,0,0,0.05); margin-bottom: 1.5rem; }
+        .card-title { font-size: 1.125rem; font-weight: 600; margin-bottom: 1rem; margin-top: 0; }
+        .form-group { margin-bottom: 1rem; }
+        .form-group label { display: block; font-size: 0.875rem; margin-bottom: 0.35rem; color: var(--text-muted); }
+        .form-group input, .form-group select, .form-group textarea { width: 100%; padding: 0.6rem; border: 1px solid var(--border); border-radius: 6px; font-size: 0.875rem; box-sizing: border-box; }
+        .form-row { display: grid; grid-template-columns: 2fr 1fr 1fr 1fr; gap: 0.75rem; align-items: end; }
+        .line-row { background-color: #f8fafc; padding: 1rem; border-radius: 6px; border: 1px solid var(--border); margin-bottom: 1rem; }
+        .btn { padding: 0.6rem 1.25rem; border-radius: 6px; border: none; cursor: pointer; font-size: 0.875rem; font-weight: 600; }
+        .btn-success { background-color: var(--success); color: #fff; }
+        .btn-secondary { background-color: #e2e8f0; color: var(--text); }
+        .actions { display: flex; gap: 0.75rem; justify-content: flex-end; margin-top: 1.5rem; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Sneaker ERP - Satış</h1>
+        <div>
+            <a href="{% url 'distribution:sales_order_list' %}">Siparişler</a>
+            <a href="{% url 'production:order_list' %}">Üretim</a>
+            <a href="{% url 'inventory:stock_level_list' %}">Stok</a>
+            <a href="/admin/">Django Admin</a>
+        </div>
+    </div>
+
+    <div class="container">
+        <a href="{% url 'distribution:sales_order_list' %}" class="btn-back">← Sipariş Listesine Dön</a>
+        <h2 class="page-title">Yeni Satış Siparişi</h2>
+
+        <form method="post" id="order-form">
+            {% csrf_token %}
+            <div class="card">
+                <h3 class="card-title">Sipariş Başlık Bilgileri</h3>
+                <div class="form-row" style="grid-template-columns: 1fr 1fr;">
+                    <div class="form-group">
+                        <label>Müşteri</label>
+                        <select name="customer" required>
+                            <option value="">Seçiniz</option>
+                            {% for c in customers %}
+                            <option value="{{ c.pk }}">{{ c.code }} - {{ c.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Sipariş Numarası</label>
+                        <input type="text" name="order_number" required placeholder="Örn: SO-2026-0001">
+                    </div>
+                </div>
+                <div class="form-row" style="grid-template-columns: 1fr 1fr 1fr; margin-top: 1rem;">
+                    <div class="form-group">
+                        <label>Talep Edilen Teslim Tarihi</label>
+                        <input type="date" name="requested_delivery_date">
+                    </div>
+                    <div class="form-group">
+                        <label>Taahhüt Edilen Teslim Tarihi</label>
+                        <input type="date" name="promised_delivery_date">
+                    </div>
+                </div>
+                <div class="form-group" style="margin-top: 1rem;">
+                    <label>Notlar</label>
+                    <textarea name="note" rows="3"></textarea>
+                </div>
+            </div>
+
+            <div class="card">
+                <h3 class="card-title">Sipariş Kalemleri</h3>
+                <div id="line-container">
+                    <div class="line-row">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Ürün</label>
+                                <select name="product_1" required>
+                                    <option value="">Seçiniz</option>
+                                    {% for p in products %}
+                                    <option value="{{ p.pk }}">{{ p.code }} - {{ p.name }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>Miktar</label>
+                                <input type="number" step="0.001" name="quantity_1" required>
+                            </div>
+                            <div class="form-group">
+                                <label>Birim Fiyat (₺)</label>
+                                <input type="number" step="0.01" name="unit_price_1" required>
+                            </div>
+                            <div class="form-group">
+                                <button type="button" class="btn btn-secondary" onclick="removeLine(this)">Kaldır</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <input type="hidden" name="line_count" id="line_count" value="1">
+                <button type="button" class="btn btn-secondary" onclick="addLine()">+ Kalem Ekle</button>
+            </div>
+
+            <div class="actions">
+                <button type="submit" class="btn btn-success">Siparişi Oluştur</button>
+            </div>
+        </form>
+    </div>
+
+    <script>
+        let lineIndex = 1;
+        const productsOptions = `{% for p in products %}<option value="{{ p.pk }}">{{ p.code }} - {{ p.name }}</option>{% endfor %}`;
+
+        function addLine() {
+            lineIndex++;
+            document.getElementById('line_count').value = lineIndex;
+            const container = document.getElementById('line-container');
+            const row = document.createElement('div');
+            row.className = 'line-row';
+            row.innerHTML = `
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Ürün</label>
+                        <select name="product_${lineIndex}" required>${productsOptions}</select>
+                    </div>
+                    <div class="form-group">
+                        <label>Miktar</label>
+                        <input type="number" step="0.001" name="quantity_${lineIndex}" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Birim Fiyat (₺)</label>
+                        <input type="number" step="0.01" name="unit_price_${lineIndex}" required>
+                    </div>
+                    <div class="form-group">
+                        <button type="button" class="btn btn-secondary" onclick="removeLine(this)">Kaldır</button>
+                    </div>
+                </div>
+            `;
+            container.appendChild(row);
+        }
+
+        function removeLine(btn) {
+            const row = btn.closest('.line-row');
+            if (document.querySelectorAll('.line-row').length > 1) {
+                row.remove();
+            }
+        }
+    </script>
+</body>
+</html>

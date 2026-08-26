@@ -4,6 +4,7 @@ from django.db.models import Q
 from decimal import Decimal
 from django.views.decorators.http import require_POST
 from .models import ProductionOrder, ProductionOrderOperation
+from quality.models import QualityCheck
 
 
 def order_list(request):
@@ -41,6 +42,7 @@ def order_list(request):
         "current_priority": priority_filter,
         "status_choices": ProductionOrder.Status.choices,
         "priority_choices": ProductionOrder.Priority.choices,
+        "quality_result_choices": QualityCheck.Result.choices,
     }
     return render(request, "production/order_list.html", context)
 
