@@ -139,6 +139,7 @@ USE_TZ = True
 
 STATIC_URL = '/static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
+STATICFILES_DIRS = [BASE_DIR / 'static']
 
 CACHES = {
     'default': {
@@ -180,3 +181,7 @@ COMPANY_TAX_OFFICE = env("COMPANY_TAX_OFFICE", default="")
 COMPANY_TAX_NUMBER = env("COMPANY_TAX_NUMBER", default="")
 COMPANY_PHONE = env("COMPANY_PHONE", default="")
 COMPANY_EMAIL = env("COMPANY_EMAIL", default="")
+
+LOGIN_URL = "login"
+LOGIN_REDIRECT_URL = "home"
+LOGOUT_REDIRECT_URL = "home"
