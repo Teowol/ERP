@@ -141,6 +141,8 @@ STATIC_URL = '/static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 STATICFILES_DIRS = [BASE_DIR / 'static']
 
+DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+
 CACHES = {
     'default': {
         'BACKEND': 'django.core.cache.backends.redis.RedisCache',
@@ -185,3 +187,6 @@ COMPANY_EMAIL = env("COMPANY_EMAIL", default="")
 LOGIN_URL = "login"
 LOGIN_REDIRECT_URL = "home"
 LOGOUT_REDIRECT_URL = "home"
+
+DEFAULT_FROM_EMAIL = env("DEFAULT_FROM_EMAIL", default="noreply@speeders.com.tr")
+ERP_NOTIFICATION_EMAIL = env("ERP_NOTIFICATION_EMAIL", default="")

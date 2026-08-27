@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ variant.sku }} | SPEEDERS</title>
+    <style>
+        :root {
+            --navy: #061a2d;
+            --gold: #c9a56a;
+            --bg: #f4f6fa;
+            --white: #fff;
+            --text: #172033;
+            --muted: #718096;
+            --border: #e3e8ef;
+        }
+
+        * { box-sizing: border-box; }
+
+        body {
+            margin: 0;
+            background: var(--bg);
+            color: var(--text);
+            font-family: Arial, Helvetica, sans-serif;
+        }
+
+        header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 16px 6%;
+            color: var(--white);
+            background: var(--navy);
+        }
+
+        header a {
+            color: #e0c18d;
+            text-decoration: none;
+            font-weight: 700;
+        }
+
+        .brand {
+            color: var(--white);
+            font-size: 20px;
+            letter-spacing: 4px;
+        }
+
+        .page {
+            width: min(850px, 92%);
+            margin: 0 auto;
+            padding: 32px 0 50px;
+        }
+
+        .card {
+            padding: 26px;
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            background: var(--white);
+        }
+
+        h1 {
+            margin: 0 0 7px;
+            color: var(--navy);
+            font-size: 27px;
+        }
+
+        .sku {
+            margin-bottom: 24px;
+            color: var(--muted);
+        }
+
+        dl {
+            display: grid;
+            grid-template-columns: 190px 1fr;
+            gap: 13px 20px;
+            margin: 0;
+        }
+
+        dt {
+            color: var(--muted);
+            font-size: 13px;
+            font-weight: 700;
+        }
+
+        dd {
+            margin: 0;
+            font-size: 14px;
+        }
+
+        h2 {
+            margin: 30px 0 15px;
+            color: var(--navy);
+            font-size: 20px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th, td {
+            padding: 10px;
+            border-bottom: 1px solid var(--border);
+            text-align: left;
+            font-size: 14px;
+        }
+
+        th {
+            color: var(--muted);
+            font-size: 12px;
+        }
+
+        .back {
+            display: inline-block;
+            margin-top: 24px;
+            color: var(--navy);
+            text-decoration: none;
+            font-weight: 700;
+        }
+
+        .empty {
+            color: var(--muted);
+            font-size: 14px;
+        }
+
+        @media (max-width: 600px) {
+            dl {
+                grid-template-columns: 1fr;
+                gap: 5px;
+            }
+
+            dd {
+                margin-bottom: 10px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <a class="brand" href="{% url 'home' %}">SPEEDERS</a>
+        <a href="{% url 'catalog:product_list' %}">Katalog</a>
+    </header>
+
+    <main class="page">
+        <div class="card">
+            <h1>{{ variant.shoe_model.name }}</h1>
+            <div class="sku">SKU: {{ variant.sku }}</div>
+
+            <dl>
+                <dt>Model Kodu</dt>
+                <dd>{{ variant.shoe_model.code }}</dd>
+
+                <dt>Hedef Kitle</dt>
+                <dd>{{ variant.shoe_model.get_target_gender_display }}</dd>
+
+                <dt>Renk</dt>
+                <dd>{{ variant.color.name }} ({{ variant.color.code }})</dd>
+
+                <dt>Numara</dt>
+                <dd>{{ variant.size.size_value }}</dd>
+
+                <dt>Envanter Ürünü</dt>
+                <dd>{{ variant.product.code }} - {{ variant.product.name }}</dd>
+
+                <dt>Ürün Tipi</dt>
+                <dd>{{ variant.product.get_product_type_display }}</dd>
+
+                <dt>Birim</dt>
+                <dd>{{ variant.product.get_unit_display }}</dd>
+
+                <dt>Minimum Stok Seviyesi</dt>
+                <dd>{{ variant.product.minimum_stock_level }}</dd>
+
+                <dt>Durum</dt>
+                <dd>
+                    {% if variant.is_active %}Aktif{% else %}Pasif{% endif %}
+                </dd>
+            </dl>
+
+            <h2>Depo Stokları</h2>
+
+            {% if stocks %}
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Depo</th>
+                            <th>Miktar</th>
+                            <th>Rezerve</th>
+                            <th>Kullanılabilir</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for stock in stocks %}
+                            <tr>
+                                <td>{{ stock.warehouse.code }} - {{ stock.warehouse.name }}</td>
+                                <td>{{ stock.quantity }}</td>
+                                <td>{{ stock.reserved_quantity }}</td>
+                                <td>{{ stock.available_quantity }}</td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            {% else %}
+                <p class="empty">Bu ürün için henüz depo stok kaydı bulunmuyor.</p>
+            {% endif %}
+
+            <a class="back" href="{% url 'catalog:product_list' %}">← Kataloğa Dön</a>
+        </div>
+    </main>
+</body>
+</html>

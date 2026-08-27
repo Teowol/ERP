@@ -1,183 +1,218 @@
 from decimal import Decimal
 
 from django.conf import settings
+from django.core.exceptions import ValidationError
 from django.core.validators import MinValueValidator
 from django.db import models
 
-from inventory.models import Product, Warehouse
+from inventory.models import Product
 
 
 class Supplier(models.Model):
-    """Kauçuk, kumaş, iplik ve diğer malzemeleri sağlayan tedarikçiler."""
+    """Bitmiş ürün tedarikçisi bilgileri."""
 
     code = models.CharField(
         max_length=30,
         unique=True,
         verbose_name="Tedarikçi Kodu",
     )
-    name = models.CharField(
+    company_name = models.CharField(
         max_length=200,
-        verbose_name="Firma Adı",
+        verbose_name="Firma Unvanı",
     )
-    tax_number = models.CharField(
-        max_length=50,
+    commercial_title = models.CharField(
+        max_length=250,
         blank=True,
-        verbose_name="Vergi Numarası",
+        verbose_name="Ticari Unvan",
     )
-    contact_person = models.CharField(
+    contact_name = models.CharField(
         max_length=150,
         blank=True,
         verbose_name="Yetkili Kişi",
     )
-    email = models.EmailField(
+    contact_title = models.CharField(
+        max_length=100,
         blank=True,
-        verbose_name="E-posta",
+        verbose_name="Yetkili Ünvanı",
     )
     phone = models.CharField(
         max_length=30,
         blank=True,
         verbose_name="Telefon",
     )
+    mobile_phone = models.CharField(
+        max_length=30,
+        blank=True,
+        verbose_name="Cep Telefonu",
+    )
+    email = models.EmailField(
+        blank=True,
+        verbose_name="E-posta",
+    )
+    website = models.URLField(
+        blank=True,
+        verbose_name="Web Sitesi",
+    )
+    tax_office = models.CharField(
+        max_length=100,
+        blank=True,
+        verbose_name="Vergi Dairesi",
+    )
+    tax_number = models.CharField(
+        max_length=30,
+        blank=True,
+        verbose_name="Vergi Numarası / TCKN",
+    )
+    mersis_number = models.CharField(
+        max_length=30,
+        blank=True,
+        verbose_name="MERSİS Numarası",
+    )
     address = models.TextField(
         blank=True,
         verbose_name="Adres",
     )
-    payment_terms = models.CharField(
+    city = models.CharField(
         max_length=100,
         blank=True,
-        verbose_name="Ödeme Koşulları",
+        verbose_name="İl",
     )
-    delivery_lead_time_days = models.PositiveIntegerField(
-        default=0,
-        verbose_name="Standart Teslim Süresi (Gün)",
-    )
-    is_active = models.BooleanField(
-        default=True,
-        verbose_name="Aktif mi?",
-    )
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
-
-    class Meta:
-        ordering = ["name"]
-        verbose_name = "Tedarikçi"
-        verbose_name_plural = "Tedarikçiler"
-
-    def __str__(self):
-        return f"{self.code} - {self.name}"
-
-
-class SupplierProduct(models.Model):
-    """Bir tedarikçinin sağlayabildiği ürün ve fiyat bilgileri."""
-
-    supplier = models.ForeignKey(
-        Supplier,
-        on_delete=models.PROTECT,
-        related_name="supplier_products",
-        verbose_name="Tedarikçi",
-    )
-    product = models.ForeignKey(
-        Product,
-        on_delete=models.PROTECT,
-        related_name="supplier_products",
-        verbose_name="Ürün",
-    )
-    supplier_product_code = models.CharField(
+    district = models.CharField(
         max_length=100,
         blank=True,
-        verbose_name="Tedarikçi Ürün Kodu",
+        verbose_name="İlçe",
     )
-    unit_price = models.DecimalField(
-        max_digits=14,
-        decimal_places=2,
-        default=Decimal("0"),
-        validators=[MinValueValidator(Decimal("0"))],
-        verbose_name="Birim Fiyat",
+    country = models.CharField(
+        max_length=100,
+        default="Türkiye",
+        verbose_name="Ülke",
+    )
+    postal_code = models.CharField(
+        max_length=20,
+        blank=True,
+        verbose_name="Posta Kodu",
+    )
+    payment_term_days = models.PositiveIntegerField(
+        default=30,
+        verbose_name="Ödeme Vadesi (Gün)",
     )
     currency = models.CharField(
         max_length=3,
         default="TRY",
-        verbose_name="Para Birimi",
+        verbose_name="Varsayılan Para Birimi",
     )
-    minimum_order_quantity = models.DecimalField(
-        max_digits=14,
-        decimal_places=3,
-        default=Decimal("0"),
-        validators=[MinValueValidator(Decimal("0"))],
-        verbose_name="Minimum Sipariş Miktarı",
+    bank_name = models.CharField(
+        max_length=150,
+        blank=True,
+        verbose_name="Banka Adı",
     )
-    lead_time_days = models.PositiveIntegerField(
-        default=0,
-        verbose_name="Teslim Süresi (Gün)",
+    iban = models.CharField(
+        max_length=34,
+        blank=True,
+        verbose_name="IBAN",
     )
-    is_preferred = models.BooleanField(
-        default=False,
-        verbose_name="Tercih Edilen Tedarikçi mi?",
+    notes = models.TextField(
+        blank=True,
+        verbose_name="Notlar",
     )
     is_active = models.BooleanField(
         default=True,
         verbose_name="Aktif mi?",
     )
+    created_at = models.DateTimeField(
+        auto_now_add=True,
+        verbose_name="Oluşturulma Tarihi",
+    )
+    updated_at = models.DateTimeField(
+        auto_now=True,
+        verbose_name="Güncellenme Tarihi",
+    )
 
     class Meta:
-        constraints = [
-            models.UniqueConstraint(
-                fields=["supplier", "product"],
-                name="unique_supplier_product",
-            )
-        ]
-        ordering = ["supplier", "product"]
-        verbose_name = "Tedarikçi Ürünü"
-        verbose_name_plural = "Tedarikçi Ürünleri"
+        ordering = ["code"]
+        verbose_name = "Tedarikçi"
+        verbose_name_plural = "Tedarikçiler"
 
     def __str__(self):
-        return f"{self.supplier} - {self.product}"
+        return f"{self.code} - {self.company_name}"
 
 
 class PurchaseRequest(models.Model):
-    """Departmanların oluşturduğu satın alma talepleri."""
+    """Alıcı tarafından oluşturulan veya stok kontrolüyle açılan satın alma talebi."""
 
     class Status(models.TextChoices):
         DRAFT = "draft", "Taslak"
-        SUBMITTED = "submitted", "Gönderildi"
+        PENDING_APPROVAL = "pending_approval", "Onay Bekliyor"
         APPROVED = "approved", "Onaylandı"
         REJECTED = "rejected", "Reddedildi"
-        ORDERED = "ordered", "Siparişe Dönüştü"
-        COMPLETED = "completed", "Tamamlandı"
-        CANCELLED = "cancelled", "İptal Edildi"
+        CONVERTED = "converted", "Siparişe Dönüştü"
+        CANCELLED = "cancelled", "İptal"
+
+    class Source(models.TextChoices):
+        MANUAL = "manual", "Manuel"
+        STOCK_ALERT = "stock_alert", "Otomatik Stok Uyarısı"
 
     request_number = models.CharField(
         max_length=30,
         unique=True,
         verbose_name="Talep Numarası",
     )
+    source = models.CharField(
+        max_length=20,
+        choices=Source.choices,
+        default=Source.MANUAL,
+        verbose_name="Talep Kaynağı",
+    )
+    status = models.CharField(
+        max_length=30,
+        choices=Status.choices,
+        default=Status.DRAFT,
+        verbose_name="Durum",
+    )
     requested_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.PROTECT,
-        related_name="purchase_requests",
-        verbose_name="Talep Eden",
+        related_name="purchase_requests_created",
+        verbose_name="Talebi Oluşturan",
     )
-    request_date = models.DateField(
+    requested_at = models.DateTimeField(
         auto_now_add=True,
         verbose_name="Talep Tarihi",
     )
     required_date = models.DateField(
         null=True,
         blank=True,
-        verbose_name="Gerekli Tarih",
+        verbose_name="İhtiyaç Tarihi",
     )
-    status = models.CharField(
-        max_length=20,
-        choices=Status.choices,
-        default=Status.DRAFT,
-        verbose_name="Durum",
-    )
-    description = models.TextField(
+    purpose = models.TextField(
         blank=True,
-        verbose_name="Açıklama",
+        verbose_name="Talep Açıklaması",
     )
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
+    approval_note = models.TextField(
+        blank=True,
+        verbose_name="Onay / Red Notu",
+    )
+    approved_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        related_name="purchase_requests_approved",
+        null=True,
+        blank=True,
+        verbose_name="Onaylayan Kullanıcı",
+    )
+    approved_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        verbose_name="Onay Tarihi",
+    )
+    created_at = models.DateTimeField(
+        auto_now_add=True,
+        verbose_name="Oluşturulma Tarihi",
+    )
+    updated_at = models.DateTimeField(
+        auto_now=True,
+        verbose_name="Güncellenme Tarihi",
+    )
 
     class Meta:
         ordering = ["-created_at"]
@@ -188,55 +223,75 @@ class PurchaseRequest(models.Model):
         return self.request_number
 
 
-class PurchaseRequestItem(models.Model):
-    """Satın alma talebindeki ürün ve miktar bilgisi."""
+class PurchaseRequestLine(models.Model):
+    """Satın alma talebinin bitmiş ürün kalemleri."""
 
     purchase_request = models.ForeignKey(
         PurchaseRequest,
         on_delete=models.CASCADE,
-        related_name="items",
+        related_name="lines",
         verbose_name="Satın Alma Talebi",
     )
     product = models.ForeignKey(
         Product,
         on_delete=models.PROTECT,
-        related_name="purchase_request_items",
-        verbose_name="Ürün",
+        related_name="purchase_request_lines",
+        limit_choices_to={"product_type": Product.ProductType.FINISHED_GOOD},
+        verbose_name="Bitmiş Ürün",
     )
-    quantity = models.DecimalField(
+    requested_quantity = models.DecimalField(
         max_digits=14,
         decimal_places=3,
         validators=[MinValueValidator(Decimal("0.001"))],
-        verbose_name="Miktar",
+        verbose_name="Talep Miktarı",
     )
-    reason = models.TextField(
+    note = models.CharField(
+        max_length=250,
         blank=True,
-        verbose_name="Talep Gerekçesi",
+        verbose_name="Kalem Notu",
     )
 
     class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["purchase_request", "product"],
+                name="unique_purchase_request_product",
+            )
+        ]
+        ordering = ["id"]
         verbose_name = "Satın Alma Talep Kalemi"
         verbose_name_plural = "Satın Alma Talep Kalemleri"
 
+    def clean(self):
+        if self.product_id and self.product.product_type != Product.ProductType.FINISHED_GOOD:
+            raise ValidationError(
+                {"product": "Satın alma talebine yalnızca bitmiş ürün eklenebilir."}
+            )
+
     def __str__(self):
-        return f"{self.purchase_request} - {self.product}"
+        return f"{self.purchase_request.request_number} - {self.product}"
 
 
 class PurchaseOrder(models.Model):
-    """Tedarikçiye gönderilen satın alma siparişi."""
+    """Onaylı satın alma talebinden oluşturulan tedarikçi siparişi."""
 
     class Status(models.TextChoices):
         DRAFT = "draft", "Taslak"
-        SENT = "sent", "Gönderildi"
-        CONFIRMED = "confirmed", "Onaylandı"
-        PARTIALLY_RECEIVED = "partially_received", "Kısmen Teslim Alındı"
-        RECEIVED = "received", "Tamamı Teslim Alındı"
-        CANCELLED = "cancelled", "İptal Edildi"
+        SENT = "sent", "Tedarikçiye Gönderildi"
+        PARTIALLY_RECEIVED = "partially_received", "Kısmi Teslim Alındı"
+        COMPLETED = "completed", "Tamamlandı"
+        CANCELLED = "cancelled", "İptal"
 
     order_number = models.CharField(
         max_length=30,
         unique=True,
         verbose_name="Sipariş Numarası",
+    )
+    purchase_request = models.OneToOneField(
+        PurchaseRequest,
+        on_delete=models.PROTECT,
+        related_name="purchase_order",
+        verbose_name="Kaynak Satın Alma Talebi",
     )
     supplier = models.ForeignKey(
         Supplier,
@@ -244,16 +299,13 @@ class PurchaseOrder(models.Model):
         related_name="purchase_orders",
         verbose_name="Tedarikçi",
     )
-    purchase_request = models.ForeignKey(
-        PurchaseRequest,
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        related_name="purchase_orders",
-        verbose_name="Bağlı Satın Alma Talebi",
+    status = models.CharField(
+        max_length=30,
+        choices=Status.choices,
+        default=Status.DRAFT,
+        verbose_name="Durum",
     )
     order_date = models.DateField(
-        auto_now_add=True,
         verbose_name="Sipariş Tarihi",
     )
     expected_delivery_date = models.DateField(
@@ -261,73 +313,84 @@ class PurchaseOrder(models.Model):
         blank=True,
         verbose_name="Beklenen Teslim Tarihi",
     )
-    status = models.CharField(
-        max_length=25,
-        choices=Status.choices,
-        default=Status.DRAFT,
-        verbose_name="Durum",
-    )
     currency = models.CharField(
         max_length=3,
         default="TRY",
         verbose_name="Para Birimi",
     )
-    total_amount = models.DecimalField(
-        max_digits=14,
-        decimal_places=2,
-        default=Decimal("0"),
-        validators=[MinValueValidator(Decimal("0"))],
-        verbose_name="Toplam Tutar",
+    payment_term_days = models.PositiveIntegerField(
+        default=30,
+        verbose_name="Ödeme Vadesi (Gün)",
     )
-    description = models.TextField(
+    delivery_address = models.TextField(
         blank=True,
-        verbose_name="Açıklama",
+        verbose_name="Teslimat Adresi",
     )
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
+    note = models.TextField(
+        blank=True,
+        verbose_name="Sipariş Notu",
+    )
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        related_name="purchase_orders_created",
+        null=True,
+        blank=True,
+        verbose_name="Siparişi Oluşturan",
+    )
+
+    created_at = models.DateTimeField(
+        auto_now_add=True,
+        verbose_name="Oluşturulma Tarihi",
+    )
+    updated_at = models.DateTimeField(
+        auto_now=True,
+        verbose_name="Güncellenme Tarihi",
+    )
 
     class Meta:
-        ordering = ["-created_at"]
+        ordering = ["-order_date", "-id"]
         verbose_name = "Satın Alma Siparişi"
         verbose_name_plural = "Satın Alma Siparişleri"
+
+    def clean(self):
+        if (
+            self.purchase_request_id
+            and self.purchase_request.status != PurchaseRequest.Status.APPROVED
+        ):
+            raise ValidationError(
+                {
+                    "purchase_request": (
+                        "Sipariş yalnızca onaylanmış bir satın alma talebinden oluşturulabilir."
+                    )
+                }
+            )
 
     def __str__(self):
         return self.order_number
 
 
-class PurchaseOrderItem(models.Model):
-    """Satın alma siparişinin ürün satırı."""
+class PurchaseOrderLine(models.Model):
+    """Tedarikçiye verilen bitmiş ürün sipariş kalemleri."""
 
     purchase_order = models.ForeignKey(
         PurchaseOrder,
         on_delete=models.CASCADE,
-        related_name="items",
+        related_name="lines",
         verbose_name="Satın Alma Siparişi",
     )
     product = models.ForeignKey(
         Product,
         on_delete=models.PROTECT,
-        related_name="purchase_order_items",
-        verbose_name="Ürün",
+        related_name="purchase_order_lines",
+        limit_choices_to={"product_type": Product.ProductType.FINISHED_GOOD},
+        verbose_name="Bitmiş Ürün",
     )
-    quantity = models.DecimalField(
+    ordered_quantity = models.DecimalField(
         max_digits=14,
         decimal_places=3,
         validators=[MinValueValidator(Decimal("0.001"))],
         verbose_name="Sipariş Miktarı",
-    )
-    unit_price = models.DecimalField(
-        max_digits=14,
-        decimal_places=2,
-        validators=[MinValueValidator(Decimal("0"))],
-        verbose_name="Birim Fiyat",
-    )
-    tax_rate = models.DecimalField(
-        max_digits=5,
-        decimal_places=2,
-        default=Decimal("20"),
-        validators=[MinValueValidator(Decimal("0"))],
-        verbose_name="KDV Oranı (%)",
     )
     received_quantity = models.DecimalField(
         max_digits=14,
@@ -335,6 +398,18 @@ class PurchaseOrderItem(models.Model):
         default=Decimal("0"),
         validators=[MinValueValidator(Decimal("0"))],
         verbose_name="Teslim Alınan Miktar",
+    )
+    unit_price = models.DecimalField(
+        max_digits=14,
+        decimal_places=2,
+        default=Decimal("0"),
+        validators=[MinValueValidator(Decimal("0"))],
+        verbose_name="Birim Fiyat",
+    )
+    note = models.CharField(
+        max_length=250,
+        blank=True,
+        verbose_name="Kalem Notu",
     )
 
     class Meta:
@@ -344,125 +419,27 @@ class PurchaseOrderItem(models.Model):
                 name="unique_purchase_order_product",
             )
         ]
+        ordering = ["id"]
         verbose_name = "Satın Alma Sipariş Kalemi"
         verbose_name_plural = "Satın Alma Sipariş Kalemleri"
 
-    def __str__(self):
-        return f"{self.purchase_order} - {self.product}"
+    def clean(self):
+        errors = {}
 
+        if self.product_id and self.product.product_type != Product.ProductType.FINISHED_GOOD:
+            errors["product"] = "Satın alma siparişine yalnızca bitmiş ürün eklenebilir."
 
-class GoodsReceipt(models.Model):
-    """Tedarikçiden gelen malzemelerin fabrikaya kabul kaydı."""
+        if self.received_quantity > self.ordered_quantity:
+            errors["received_quantity"] = (
+                "Teslim alınan miktar sipariş miktarından büyük olamaz."
+            )
 
-    class Status(models.TextChoices):
-        DRAFT = "draft", "Taslak"
-        RECEIVED = "received", "Teslim Alındı"
-        INSPECTION = "inspection", "Kalite Kontrol Bekliyor"
-        ACCEPTED = "accepted", "Kabul Edildi"
-        PARTIALLY_ACCEPTED = "partially_accepted", "Kısmen Kabul Edildi"
-        REJECTED = "rejected", "Reddedildi"
+        if errors:
+            raise ValidationError(errors)
 
-    receipt_number = models.CharField(
-        max_length=30,
-        unique=True,
-        verbose_name="Mal Kabul Numarası",
-    )
-    purchase_order = models.ForeignKey(
-        PurchaseOrder,
-        on_delete=models.PROTECT,
-        related_name="goods_receipts",
-        verbose_name="Satın Alma Siparişi",
-    )
-    received_date = models.DateField(
-        auto_now_add=True,
-        verbose_name="Teslim Tarihi",
-    )
-    delivered_by = models.CharField(
-        max_length=150,
-        blank=True,
-        verbose_name="Teslim Eden",
-    )
-    status = models.CharField(
-        max_length=25,
-        choices=Status.choices,
-        default=Status.DRAFT,
-        verbose_name="Durum",
-    )
-    description = models.TextField(
-        blank=True,
-        verbose_name="Açıklama",
-    )
-    created_at = models.DateTimeField(auto_now_add=True)
-
-    class Meta:
-        ordering = ["-created_at"]
-        verbose_name = "Mal Kabul"
-        verbose_name_plural = "Mal Kabuller"
+    @property
+    def line_total(self):
+        return self.ordered_quantity * self.unit_price
 
     def __str__(self):
-        return self.receipt_number
-
-
-class GoodsReceiptItem(models.Model):
-    """Mal kabul içindeki ürün, miktar, lot ve depo bilgisi."""
-
-    goods_receipt = models.ForeignKey(
-        GoodsReceipt,
-        on_delete=models.CASCADE,
-        related_name="items",
-        verbose_name="Mal Kabul",
-    )
-    purchase_order_item = models.ForeignKey(
-        PurchaseOrderItem,
-        on_delete=models.PROTECT,
-        related_name="goods_receipt_items",
-        verbose_name="Sipariş Kalemi",
-    )
-    product = models.ForeignKey(
-        Product,
-        on_delete=models.PROTECT,
-        related_name="goods_receipt_items",
-        verbose_name="Ürün",
-    )
-    received_quantity = models.DecimalField(
-        max_digits=14,
-        decimal_places=3,
-        validators=[MinValueValidator(Decimal("0.001"))],
-        verbose_name="Gelen Miktar",
-    )
-    accepted_quantity = models.DecimalField(
-        max_digits=14,
-        decimal_places=3,
-        default=Decimal("0"),
-        validators=[MinValueValidator(Decimal("0"))],
-        verbose_name="Kabul Edilen Miktar",
-    )
-    rejected_quantity = models.DecimalField(
-        max_digits=14,
-        decimal_places=3,
-        default=Decimal("0"),
-        validators=[MinValueValidator(Decimal("0"))],
-        verbose_name="Reddedilen Miktar",
-    )
-    lot_number = models.CharField(
-        max_length=100,
-        blank=True,
-        verbose_name="Lot Numarası",
-    )
-    warehouse = models.ForeignKey(
-        Warehouse,
-        on_delete=models.PROTECT,
-        related_name="goods_receipt_items",
-        verbose_name="Hedef Depo",
-    )
-    note = models.TextField(
-        blank=True,
-        verbose_name="Not",
-    )
-
-    class Meta:
-        verbose_name = "Mal Kabul Kalemi"
-        verbose_name_plural = "Mal Kabul Kalemleri"
-
-    def __str__(self):
-        return f"{self.goods_receipt} - {self.product}"
+        return f"{self.purchase_order.order_number} - {self.product}"

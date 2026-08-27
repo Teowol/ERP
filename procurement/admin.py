@@ -1,14 +1,11 @@
 from django.contrib import admin
 
-from procurement.models import (
-    GoodsReceipt,
-    GoodsReceiptItem,
+from .models import (
     PurchaseOrder,
-    PurchaseOrderItem,
+    PurchaseOrderLine,
     PurchaseRequest,
-    PurchaseRequestItem,
+    PurchaseRequestLine,
     Supplier,
-    SupplierProduct,
 )
 
 
@@ -16,57 +13,60 @@ from procurement.models import (
 class SupplierAdmin(admin.ModelAdmin):
     list_display = [
         "code",
-        "name",
-        "contact_person",
+        "company_name",
+        "contact_name",
         "phone",
-        "delivery_lead_time_days",
+        "email",
+        "payment_term_days",
         "is_active",
     ]
-    list_filter = ["is_active"]
-    search_fields = ["code", "name", "tax_number"]
-
-
-@admin.register(SupplierProduct)
-class SupplierProductAdmin(admin.ModelAdmin):
-    list_display = [
-        "supplier",
-        "product",
-        "unit_price",
-        "currency",
-        "minimum_order_quantity",
-        "is_preferred",
-        "is_active",
-    ]
-    list_filter = ["currency", "is_preferred", "is_active", "supplier"]
+    list_filter = ["is_active", "country", "currency"]
     search_fields = [
-        "supplier__name",
-        "product__code",
-        "product__name",
+        "code",
+        "company_name",
+        "commercial_title",
+        "contact_name",
+        "tax_number",
+        "email",
+        "phone",
     ]
+    ordering = ["code"]
 
 
-class PurchaseRequestItemInline(admin.TabularInline):
-    model = PurchaseRequestItem
+class PurchaseRequestLineInline(admin.TabularInline):
+    model = PurchaseRequestLine
     extra = 1
+    autocomplete_fields = ["product"]
 
 
 @admin.register(PurchaseRequest)
 class PurchaseRequestAdmin(admin.ModelAdmin):
     list_display = [
         "request_number",
-        "requested_by",
-        "request_date",
-        "required_date",
+        "source",
         "status",
+        "requested_by",
+        "required_date",
+        "requested_at",
+        "approved_by",
     ]
-    list_filter = ["status", "request_date"]
-    search_fields = ["request_number"]
-    inlines = [PurchaseRequestItemInline]
+    list_filter = ["status", "source", "requested_at"]
+    search_fields = [
+        "request_number",
+        "purpose",
+        "requested_by__username",
+    ]
+    autocomplete_fields = ["requested_by", "approved_by"]
+    readonly_fields = ["requested_at", "approved_at", "created_at", "updated_at"]
+    inlines = [PurchaseRequestLineInline]
+    ordering = ["-created_at"]
 
 
-class PurchaseOrderItemInline(admin.TabularInline):
-    model = PurchaseOrderItem
+class PurchaseOrderLineInline(admin.TabularInline):
+    model = PurchaseOrderLine
     extra = 1
+    autocomplete_fields = ["product"]
+    readonly_fields = ["line_total"]
 
 
 @admin.register(PurchaseOrder)
@@ -74,84 +74,61 @@ class PurchaseOrderAdmin(admin.ModelAdmin):
     list_display = [
         "order_number",
         "supplier",
+        "status",
         "order_date",
         "expected_delivery_date",
-        "status",
         "currency",
-        "total_amount",
+        "created_by",
     ]
-    list_filter = ["status", "currency", "supplier"]
+    list_filter = ["status", "currency", "order_date", "supplier"]
     search_fields = [
         "order_number",
         "supplier__code",
-        "supplier__name",
+        "supplier__company_name",
+        "purchase_request__request_number",
     ]
-    inlines = [PurchaseOrderItemInline]
+    autocomplete_fields = [
+        "purchase_request",
+        "supplier",
+        "created_by",
+    ]
+    readonly_fields = ["created_at", "updated_at"]
+    inlines = [PurchaseOrderLineInline]
+    ordering = ["-order_date", "-id"]
 
 
-class GoodsReceiptItemInline(admin.TabularInline):
-    model = GoodsReceiptItem
-    extra = 1
-
-
-@admin.register(GoodsReceipt)
-class GoodsReceiptAdmin(admin.ModelAdmin):
+@admin.register(PurchaseRequestLine)
+class PurchaseRequestLineAdmin(admin.ModelAdmin):
     list_display = [
-        "receipt_number",
-        "purchase_order",
-        "received_date",
-        "status",
-        "delivered_by",
+        "purchase_request",
+        "product",
+        "requested_quantity",
+        "note",
     ]
-    list_filter = ["status", "received_date"]
-    search_fields = [
-        "receipt_number",
-        "purchase_order__order_number",
-    ]
-    inlines = [GoodsReceiptItemInline]
-
-
-@admin.register(PurchaseRequestItem)
-class PurchaseRequestItemAdmin(admin.ModelAdmin):
-    list_display = ["purchase_request", "product", "quantity"]
+    list_filter = ["purchase_request__status"]
     search_fields = [
         "purchase_request__request_number",
         "product__code",
         "product__name",
     ]
+    autocomplete_fields = ["purchase_request", "product"]
 
 
-@admin.register(PurchaseOrderItem)
-class PurchaseOrderItemAdmin(admin.ModelAdmin):
+@admin.register(PurchaseOrderLine)
+class PurchaseOrderLineAdmin(admin.ModelAdmin):
     list_display = [
         "purchase_order",
         "product",
-        "quantity",
-        "unit_price",
+        "ordered_quantity",
         "received_quantity",
+        "unit_price",
+        "line_total",
     ]
+    list_filter = ["purchase_order__status"]
     search_fields = [
         "purchase_order__order_number",
         "product__code",
         "product__name",
     ]
-
-
-@admin.register(GoodsReceiptItem)
-class GoodsReceiptItemAdmin(admin.ModelAdmin):
-    list_display = [
-        "goods_receipt",
-        "product",
-        "received_quantity",
-        "accepted_quantity",
-        "rejected_quantity",
-        "lot_number",
-        "warehouse",
-    ]
-    list_filter = ["warehouse"]
-    search_fields = [
-        "goods_receipt__receipt_number",
-        "product__code",
-        "product__name",
-        "lot_number",
-    ]
+    autocomplete_fields = ["purchase_order", "product"]
+    readonly_fields = ["line_total"]
