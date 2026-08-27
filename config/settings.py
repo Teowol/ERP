@@ -15,10 +15,46 @@ from pathlib import Path
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
+import sentry_sdk
+from sentry_sdk.integrations.celery import CeleryIntegration
+from sentry_sdk.integrations.django import DjangoIntegration
+
 import environ
 
 env = environ.Env()
 environ.Env.read_env(BASE_DIR / '.env')
+
+import os
+import subprocess
+
+# Sentry release bilgisi: son git commit hash'i
+SENTRY_RELEASE = "unknown"
+try:
+    SENTRY_RELEASE = (
+        subprocess.check_output(
+            ["git", "rev-parse", "--short", "HEAD"],
+            cwd=BASE_DIR,
+            stderr=subprocess.DEVNULL,
+        )
+        .decode("utf-8")
+        .strip()
+    )
+except Exception:
+    pass
+
+sentry_sdk.init(
+    dsn=env("SENTRY_DSN", default=""),
+    integrations=[
+        DjangoIntegration(),
+        CeleryIntegration(),
+    ],
+    environment=env("SENTRY_ENVIRONMENT", default="production"),
+    release=SENTRY_RELEASE,
+    send_default_pii=False,
+    traces_sample_rate=0.05,          # Performans izleme oranı (düşük kaynak)
+    profiles_sample_rate=0.0,         # Profil örnekleme kapalı
+    before_send=lambda event, hint: None if env.bool("SENTRY_DISABLED", default=False) else event,
+)
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/6.1/howto/deployment/checklist/
@@ -60,6 +96,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    'core.middleware.SentryModuleTagMiddleware'
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
