@@ -75,18 +75,13 @@
         <p class="subtitle">Yeni kullanıcı hesabınızı oluşturun.</p>
         <form method="post">
             {% csrf_token %}
-            <label for="id_username">Kullanıcı adı</label>
-            {{ form.username }}
-            {{ form.username.errors }}
-            {% if form.username.help_text %}<span class="helptext">{{ form.username.help_text }}</span>{% endif %}
-            <label for="id_password1">Şifre</label>
-            {{ form.password1 }}
-            {{ form.password1.errors }}
-            {% if form.password1.help_text %}<span class="helptext">{{ form.password1.help_text }}</span>{% endif %}
-            <label for="id_password2">Şifre tekrarı</label>
-            {{ form.password2 }}
-            {{ form.password2.errors }}
-            {% if form.password2.help_text %}<span class="helptext">{{ form.password2.help_text }}</span>{% endif %}
+
+            {% if form.non_field_errors %}
+                <div class="error">{{ form.non_field_errors }}</div>
+            {% endif %}
+
+            {{ form.as_p }}
+
             <button type="submit">Hesap Oluştur</button>
         </form>
         <p class="bottom-link">Zaten hesabınız var mı? <a href="{% url 'login' %}">Giriş yapın</a></p>

@@ -1,17 +1,97 @@
-from django.shortcuts import render, redirect
+from django import forms
 from django.contrib.auth import login
 from django.contrib.auth.forms import UserCreationForm
+from django.contrib.auth.models import Group
+from django.contrib.auth import get_user_model
+from django.db import transaction
+from django.shortcuts import redirect, render
+
+from distribution.models import Customer
+
+
+User = get_user_model()
+
+
+class CustomerRegisterForm(UserCreationForm):
+    email = forms.EmailField(
+        required=True,
+        label="E-posta",
+    )
+    first_name = forms.CharField(
+        max_length=150,
+        required=True,
+        label="Ad",
+    )
+    last_name = forms.CharField(
+        max_length=150,
+        required=True,
+        label="Soyad",
+    )
+    phone = forms.CharField(
+        max_length=30,
+        required=True,
+        label="Telefon",
+    )
+    address = forms.CharField(
+        required=True,
+        label="Adres",
+        widget=forms.Textarea(attrs={"rows": 4}),
+    )
+
+    class Meta(UserCreationForm.Meta):
+        model = User
+        fields = (
+            "username",
+            "first_name",
+            "last_name",
+            "email",
+            "password1",
+            "password2",
+        )
+
+    @transaction.atomic
+    def save(self, commit=True):
+        user = super().save(commit=False)
+
+        user.email = self.cleaned_data["email"]
+        user.first_name = self.cleaned_data["first_name"]
+        user.last_name = self.cleaned_data["last_name"]
+
+        if commit:
+            user.save()
+
+            buyer_group, _ = Group.objects.get_or_create(name="Buyer")
+            user.groups.add(buyer_group)
+
+            Customer.objects.create(
+                user=user,
+                code=f"CUST-{user.pk:05d}",
+                name=f"{user.first_name} {user.last_name}".strip(),
+                email=user.email,
+                phone=self.cleaned_data["phone"],
+                address=self.cleaned_data["address"],
+            )
+
+        return user
+
 
 def home(request):
     return render(request, "core/home.html")
 
+
 def register(request):
     if request.method == "POST":
-        form = UserCreationForm(request.POST)
+        form = CustomerRegisterForm(request.POST)
+
         if form.is_valid():
             user = form.save()
             login(request, user)
             return redirect("home")
     else:
-        form = UserCreationForm()
-    return render(request, "registration/register.html", {"form": form})
+        form = CustomerRegisterForm()
+
+    return render(
+        request,
+        "registration/register.html",
+        {"form": form},
+    )

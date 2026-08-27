@@ -3,23 +3,30 @@ from decimal import Decimal
 from django.core.validators import MinValueValidator
 from django.db import models
 
+from django.conf import settings
 
 class Customer(models.Model):
-    """Sipariş veren müşteriler."""
+    user = models.OneToOneField(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        related_name="customer_profile",
+        null=True,          # Geçiş: mevcut müşteriler için
+        blank=True,         # Admin panelde boş bırakılabilir
+        verbose_name="Kullanıcı Hesabı",
+    )
+    code = models.CharField(max_length=20, unique=True)
+    name = models.CharField(max_length=150)
+    tax_number = models.CharField(max_length=50, blank=True)
+    email = models.EmailField()  # blank=True kaldırıldı, zorunlu
+    phone = models.CharField(max_length=30, blank=True)
+    address = models.TextField(blank=True)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
         ordering = ["name"]
         verbose_name = "Müşteri"
         verbose_name_plural = "Müşteriler"
-
-    code = models.CharField(max_length=20, unique=True)
-    name = models.CharField(max_length=150)
-    tax_number = models.CharField(max_length=50, blank=True)
-    email = models.EmailField(blank=True)
-    phone = models.CharField(max_length=30, blank=True)
-    address = models.TextField(blank=True)
-    is_active = models.BooleanField(default=True)
-    created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
         return f"{self.code} - {self.name}"
