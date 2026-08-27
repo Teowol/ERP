@@ -24,6 +24,9 @@ import environ
 env = environ.Env()
 environ.Env.read_env(BASE_DIR / '.env')
 
+OPENAI_API_KEY = env("OPENAI_API_KEY", default="")
+OPENAI_MODEL = env("OPENAI_MODEL", default="gpt-4o-mini")
+
 import os
 import subprocess
 
@@ -89,6 +92,7 @@ INSTALLED_APPS = [
     "catalog",
     "quality",
     "distribution",
+    "ai",
 
     "django_celery_beat",
     "django_celery_results",
@@ -96,7 +100,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
-    'core.middleware.SentryModuleTagMiddleware'
+    'core.middleware.SentryModuleTagMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',

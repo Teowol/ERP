@@ -6,6 +6,7 @@ from core.views import home, register
 urlpatterns = [
     path("", home, name="home"),
     path("admin/", admin.site.urls),
+    path("ai/", include("ai.urls")),
     path("giris/", auth_views.LoginView.as_view(template_name="registration/login.html"), name="login"),
     path("uye-ol/", register, name="register"),
     path("cikis/", auth_views.LogoutView.as_view(), name="logout"),
