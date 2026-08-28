@@ -1,15 +1,21 @@
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 from django.contrib import messages
+from django.contrib.auth.decorators import login_required
 from django.db import transaction
 from django.db.models import Q
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 
+from catalog.models import ProductVariant
 from inventory.models import Product, Stock, Warehouse
 from production.models import BillOfMaterial, ProductionLine, ProductionOrder, Routing
 
 from .models import Customer, SalesOrder, SalesOrderLine
 from .tasks import notify_sales_order_confirmed
+
+
+def is_buyer(user):
+    return user.is_authenticated and user.groups.filter(name="Buyer").exists()
 
 
 def sales_order_list(request):
@@ -83,20 +89,16 @@ def sales_order_create(request):
 
     if request.method == "POST":
         customer_id = request.POST.get("customer")
-        order_number = request.POST.get("order_number", "").strip()
         requested_delivery_date = request.POST.get("requested_delivery_date")
         promised_delivery_date = request.POST.get("promised_delivery_date")
         note = request.POST.get("note", "").strip()
 
-        if not customer_id or not order_number:
-            messages.error(request, "Müşteri ve sipariş numarası zorunludur.")
-        elif SalesOrder.objects.filter(order_number=order_number).exists():
-            messages.error(request, "Bu sipariş numarası zaten kullanılıyor.")
+        if not customer_id:
+            messages.error(request, "Müşteri seçimi zorunludur.")
         else:
             with transaction.atomic():
                 order = SalesOrder.objects.create(
                     customer_id=customer_id,
-                    order_number=order_number,
                     requested_delivery_date=requested_delivery_date or None,
                     promised_delivery_date=promised_delivery_date or None,
                     note=note,
@@ -116,8 +118,15 @@ def sales_order_create(request):
                             unit_price=unit_price,
                         )
 
-            messages.success(request, "Sipariş başarıyla oluşturuldu.")
+            messages.success(request, f"{order.order_number} numaralı sipariş başarıyla oluşturuldu.")
             return redirect("distribution:sales_order_detail", pk=order.pk)
+
+    context = {
+        "customers": customers,
+        "products": products,
+        "today": timezone.now().date().isoformat(),
+    }
+    return render(request, "distribution/sales_order_create.html", context)
 
     context = {
         "customers": customers,
@@ -279,12 +288,12 @@ def create_production_order_from_line(request, line_pk):
         return redirect("distribution:sales_order_detail", pk=order.pk)
 
     # Ürüne ait aktif BOM ve Routing bulalım
-    bom = BillOfMaterial.objects.filter(product=line.product, is_active=True).first()
+    bom = BillOfMaterial.objects.filter(product=line.product, status=BillOfMaterial.Status.ACTIVE).first()
     if not bom:
         messages.error(request, f"{line.product.name} için aktif bir Reçete (BOM) bulunamadı. Önce BOM tanımlamalısınız.")
         return redirect("distribution:sales_order_detail", pk=order.pk)
 
-    routing = Routing.objects.filter(product=line.product, is_active=True).first()
+    routing = Routing.objects.filter(product=line.product, status=Routing.Status.ACTIVE).first()
     if not routing:
         messages.error(request, f"{line.product.name} için aktif bir Rota (Routing) bulunamadı. Önce Rota tanımlamalısınız.")
         return redirect("distribution:sales_order_detail", pk=order.pk)
@@ -531,3 +540,162 @@ def invoice_pdf(request, invoice_pk):
     response = HttpResponse(buffer, content_type="application/pdf")
     response["Content-Disposition"] = f'attachment; filename="{invoice.invoice_number}.pdf"'
     return response
+
+@login_required
+def customer_order_list(request):
+    """Müşterinin kendi siparişlerini listeler."""
+    if not is_buyer(request.user):
+        return redirect("portal")
+
+    customer = getattr(request.user, "customer_profile", None)
+    orders = (
+        SalesOrder.objects.filter(customer=customer).prefetch_related("lines__product")
+        if customer else SalesOrder.objects.none()
+    )
+    return render(request, "distribution/customer_order_list.html", {"orders": orders})
+
+
+@login_required
+def customer_order_detail(request, pk):
+    """Müşterinin kendi sipariş detayını gösterir."""
+    if not is_buyer(request.user):
+        return redirect("portal")
+
+    customer = getattr(request.user, "customer_profile", None)
+    order = get_object_or_404(SalesOrder, pk=pk, customer=customer)
+    linked_production_orders = ProductionOrder.objects.filter(
+        reference_order_number=order.order_number
+    )
+    return render(
+        request,
+        "distribution/customer_order_detail.html",
+        {"order": order, "linked_production_orders": linked_production_orders},
+    )
+
+
+@transaction.atomic
+def _process_customer_order(order, user):
+    """
+    Sipariş kalemlerini kontrol eder:
+    - Stok yeterliyse rezerve eder.
+    - Stok yetersizse eksik miktar için üretim emri açar.
+    """
+    fg_wh = Warehouse.objects.filter(code="DEP-MM").first()
+    raw_wh = Warehouse.objects.filter(code="DEP-HM").first()
+    if not fg_wh:
+        raise ValueError("Mamul deposu (DEP-MM) bulunamadı.")
+
+    fully_fulfilled_from_stock = True
+
+    for line in order.lines.select_related("product"):
+        stock, _ = Stock.objects.select_for_update().get_or_create(
+            product=line.product,
+            warehouse=fg_wh,
+            defaults={"quantity": Decimal("0"), "reserved_quantity": Decimal("0")},
+        )
+        available = stock.available_quantity
+
+        if available >= line.quantity:
+            stock.reserved_quantity += line.quantity
+            stock.save(update_fields=["reserved_quantity", "updated_at"])
+            continue
+
+        fully_fulfilled_from_stock = False
+        shortfall = line.quantity - max(available, Decimal("0"))
+
+        if available > 0:
+            stock.reserved_quantity += available
+            stock.save(update_fields=["reserved_quantity", "updated_at"])
+
+        bom = BillOfMaterial.objects.filter(
+            product=line.product, status=BillOfMaterial.Status.ACTIVE
+        ).first()
+        routing = Routing.objects.filter(
+            product=line.product, status=Routing.Status.ACTIVE
+        ).first()
+        prod_line = ProductionLine.objects.filter(is_active=True).first()
+
+        if not bom or not routing or not raw_wh or not prod_line:
+            raise ValueError(
+                f"{line.product.name} için üretim yapılamıyor: "
+                "aktif Reçete/Rota/Hammadde Deposu/Üretim Hattı eksik."
+            )
+
+        timestamp = timezone.now().strftime("%y%m%d%H%M%S")
+        po_number = f"PO-{order.order_number}-{line.pk}-{timestamp[-4:]}"
+
+        po = ProductionOrder.objects.create(
+            order_number=po_number,
+            product=line.product,
+            bill_of_material=bom,
+            routing=routing,
+            production_line=prod_line,
+            raw_materials_warehouse=raw_wh,
+            finished_goods_warehouse=fg_wh,
+            planned_quantity=shortfall,
+            reference_order_number=order.order_number,
+            created_by=user,
+            planned_start_date=timezone.now(),
+            planned_end_date=order.promised_delivery_date or timezone.now(),
+        )
+        po.create_components_from_bom()
+        po.create_operations_from_routing()
+
+    order.status = (
+        SalesOrder.Status.CONFIRMED if fully_fulfilled_from_stock else SalesOrder.Status.IN_PRODUCTION
+    )
+    order.save(update_fields=["status", "updated_at"])
+
+
+@login_required
+def customer_create_order(request, variant_pk):
+    """Müşteri ürün detayından sipariş oluşturur."""
+    if not is_buyer(request.user):
+        return redirect("portal")
+
+    variant = get_object_or_404(ProductVariant, pk=variant_pk)
+    customer = getattr(request.user, "customer_profile", None)
+
+    if not customer:
+        messages.error(request, "Müşteri profiliniz bulunamadı.")
+        return redirect("catalog:product_detail", pk=variant_pk)
+
+    if request.method != "POST":
+        return redirect("catalog:product_detail", pk=variant_pk)
+
+    try:
+        quantity = Decimal(request.POST.get("quantity", "").strip())
+    except (InvalidOperation, AttributeError):
+        messages.error(request, "Geçerli bir miktar giriniz.")
+        return redirect("catalog:product_detail", pk=variant_pk)
+
+    if quantity <= 0:
+        messages.error(request, "Miktar sıfırdan büyük olmalıdır.")
+        return redirect("catalog:product_detail", pk=variant_pk)
+
+    timestamp = timezone.now().strftime("%y%m%d%H%M%S")
+    order_number = f"SO-{customer.code}-{timestamp}"
+
+    with transaction.atomic():
+        order = SalesOrder.objects.create(
+            customer=customer,
+            order_number=order_number,
+            status=SalesOrder.Status.DRAFT,
+        )
+        SalesOrderLine.objects.create(
+            sales_order=order,
+            product=variant.product,
+            quantity=quantity,
+            unit_price=variant.price,
+        )
+
+    try:
+        _process_customer_order(order, request.user)
+        messages.success(request, "Siparişiniz oluşturuldu.")
+    except Exception as exc:
+        messages.warning(
+            request,
+            f"Sipariş oluşturuldu ancak otomatik işlemde sorun oluştu: {exc}",
+        )
+
+    return redirect("distribution:customer_order_detail", pk=order.pk)

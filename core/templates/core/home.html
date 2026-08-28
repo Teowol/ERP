@@ -28,7 +28,7 @@
         }
         .brand {
             color: var(--gold-soft);
-            font-size: 28px;
+            font-size: 32px;
             font-weight: 700;
             letter-spacing: 8px;
             text-decoration: none;
@@ -116,7 +116,7 @@
             <span class="choice-arrow">Alıcı olarak giriş yap →</span>
         </a>
 
-        <a class="choice-card" href="{% url 'login' %}">
+        <a class="choice-card" href="{% url 'login' %}?next=/portal/">
             <div class="choice-icon">🏭</div>
             <h2>Fabrika Sahibi Girişi</h2>
             <p>Stok, üretim, satın alma, kalite ve satış operasyonlarını yönetin.</p>

@@ -71,8 +71,8 @@
 <body>
     <main class="card">
         <div class="brand">SPEEDERS</div>
-        <h1>Üye Ol</h1>
-        <p class="subtitle">Yeni kullanıcı hesabınızı oluşturun.</p>
+        <h1>Müşteri Kaydı</h1>
+        <p class="subtitle">SPEEDERS ürünlerini incelemek ve sipariş vermek için müşteri hesabınızı oluşturun.</p>
         <form method="post">
             {% csrf_token %}
 
@@ -82,9 +82,12 @@
 
             {{ form.as_p }}
 
-            <button type="submit">Hesap Oluştur</button>
+            <button type="submit">Müşteri Hesabı Oluştur</button>
         </form>
         <p class="bottom-link">Zaten hesabınız var mı? <a href="{% url 'login' %}">Giriş yapın</a></p>
+        <p class="bottom-link" style="font-size: 12px; margin-top: 10px;">
+            Fabrika / firma yetkilisiyseniz lütfen yöneticinizle iletişime geçin.
+        </p>
     </main>
 </body>
 </html>

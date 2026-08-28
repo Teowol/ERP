@@ -49,7 +49,12 @@ class SalesOrder(models.Model):
         verbose_name = "Satış Siparişi"
         verbose_name_plural = "Satış Siparişleri"
 
-    order_number = models.CharField(max_length=30, unique=True)
+    order_number = models.CharField(
+        max_length=50,
+        unique=True,
+        blank=True,
+        verbose_name="Sipariş Numarası",
+    )
     customer = models.ForeignKey(
         Customer,
         on_delete=models.PROTECT,
@@ -130,11 +135,14 @@ class SalesOrderLine(models.Model):
     )
 
     def save(self, *args, **kwargs):
-        self.quantity = Decimal(str(self.quantity))
-        self.unit_price = Decimal(str(self.unit_price))
-        self.line_total = self.quantity * self.unit_price
+        if not self.order_number:
+            now_str = timezone.now().strftime("%Y%m%d")
+            # Rastgele 4 karakter veya sayaç bazlı benzersiz kod
+            unique_suffix = uuid.uuid4().hex[:6].upper()
+            cust_code = self.customer.code if self.customer else "GEN"
+            self.order_number = f"SO-{now_str}-{cust_code}-{unique_suffix}"
         super().save(*args, **kwargs)
-
+        
     def __str__(self):
         return f"{self.product} - {self.quantity}"
 

@@ -386,7 +386,21 @@ class ProductionOrder(models.Model):
         verbose_name_plural = "Üretim Emirleri"
 
     @transaction.atomic
-    def build_components_from_bom(self):
+    def create_operations_from_routing(self):
+        """Rotadaki operasyonları üretim emri operasyonlarına dönüştürür."""
+        if not self.routing:
+            raise ValueError("Rota tanımlı değil.")
+        if self.order_operations.exists():
+            return
+        for routing_op in self.routing.operations.all():
+            ProductionOrderOperation.objects.create(
+                production_order=self,
+                routing_operation=routing_op,
+                status=ProductionOrderOperation.Status.PENDING,
+            )
+
+    @transaction.atomic
+    def create_components_from_bom(self):
         """Reçeteden üretim emri hammadde kalemlerini otomatik oluşturur."""
         if not self.bill_of_material:
             raise ValueError("Reçete tanımlı değil.")
@@ -416,7 +430,7 @@ class ProductionOrder(models.Model):
         if not self.raw_materials_warehouse:
             raise ValueError("Hammadde deposu seçilmemiş.")
         if not self.order_components.exists():
-            self.build_components_from_bom()
+            self.create_components_from_bom()
         for component in self.order_components.all():
             if component.is_fully_consumed:
                 continue

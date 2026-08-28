@@ -3,36 +3,33 @@ from django.contrib.auth import login
 from django.contrib.auth.forms import UserCreationForm
 from django.contrib.auth.models import Group
 from django.contrib.auth import get_user_model
-from django.db import transaction
 from django.contrib.auth.decorators import login_required
+from django.core.exceptions import PermissionDenied
+from django.db import transaction
 from django.shortcuts import redirect, render
 
 from distribution.models import Customer
 
-
 User = get_user_model()
 
 
+def is_buyer(user):
+    """Kullanıcının Müşteri (Buyer) olup olmadığını kontrol eder."""
+    return user.is_authenticated and user.groups.filter(name="Buyer").exists()
+
+
+def is_factory_user(user):
+    """Kullanıcının Fabrika Sahibi / Personel olup olmadığını kontrol eder."""
+    return user.is_authenticated and (
+        user.is_superuser or user.is_staff or user.groups.filter(name="FactoryOwner").exists()
+    )
+
+
 class CustomerRegisterForm(UserCreationForm):
-    email = forms.EmailField(
-        required=True,
-        label="E-posta",
-    )
-    first_name = forms.CharField(
-        max_length=150,
-        required=True,
-        label="Ad",
-    )
-    last_name = forms.CharField(
-        max_length=150,
-        required=True,
-        label="Soyad",
-    )
-    phone = forms.CharField(
-        max_length=30,
-        required=True,
-        label="Telefon",
-    )
+    email = forms.EmailField(required=True, label="E-posta")
+    first_name = forms.CharField(max_length=150, required=True, label="Ad")
+    last_name = forms.CharField(max_length=150, required=True, label="Soyad")
+    phone = forms.CharField(max_length=30, required=True, label="Telefon")
     address = forms.CharField(
         required=True,
         label="Adres",
@@ -53,14 +50,12 @@ class CustomerRegisterForm(UserCreationForm):
     @transaction.atomic
     def save(self, commit=True):
         user = super().save(commit=False)
-
         user.email = self.cleaned_data["email"]
         user.first_name = self.cleaned_data["first_name"]
         user.last_name = self.cleaned_data["last_name"]
 
         if commit:
             user.save()
-
             buyer_group, _ = Group.objects.get_or_create(name="Buyer")
             user.groups.add(buyer_group)
 
@@ -72,41 +67,68 @@ class CustomerRegisterForm(UserCreationForm):
                 phone=self.cleaned_data["phone"],
                 address=self.cleaned_data["address"],
             )
-
         return user
 
 
 def home(request):
-    """Ana sayfa: giriş yapılmamışsa rol seçim ekranı göster."""
+    """
+    Ana Karşılama Sayfası:
+    - Giriş yapılmamışsa: Rol seçim kartlarını gösterir.
+    - Giriş yapılmışsa: Rolüne göre doğrudan doğru panele yönlendirir.
+    """
     if request.user.is_authenticated:
+        if is_buyer(request.user):
+            return redirect("customer_home")
         return redirect("portal")
     return render(request, "core/home.html")
 
 
+@login_required
 def portal(request):
-    """Giriş sonrası rol bazlı yönlendirme."""
-    if not request.user.is_authenticated:
-        return redirect("home")
-
-    if request.user.groups.filter(name="Buyer").exists():
+    """
+    Fabrika Sahibi / Yönetim Portalı:
+    - Müşteri buraya girmeye çalışırsa otomatik olarak müşteri paneline yönlendirilir.
+    """
+    if is_buyer(request.user):
         return redirect("customer_home")
-
     return render(request, "core/portal.html")
 
 
 @login_required
 def customer_home(request):
-    """Müşteri ana sayfası."""
-    if not request.user.groups.filter(name="Buyer").exists():
+    """
+    Müşteri Portalı:
+    - Fabrika sahibi buraya girerse kendi portalına yönlendirilir.
+    """
+    if not is_buyer(request.user):
         return redirect("portal")
 
-    return render(request, "core/customer_home.html")
+    customer, _ = Customer.objects.get_or_create(
+        user=request.user,
+        defaults={
+            "code": f"CUST-{request.user.pk:05d}",
+            "name": f"{request.user.first_name} {request.user.last_name}".strip() or request.user.username,
+            "email": request.user.email,
+        },
+    )
+
+    context = {
+        "customer": customer,
+        "full_name": customer.name,
+        "email": customer.email,
+        "phone": customer.phone,
+        "address": customer.address,
+        "customer_code": customer.code,
+    }
+    return render(request, "core/customer_home.html", context)
 
 
 def register(request):
+    if request.user.is_authenticated:
+        return redirect("home")
+
     if request.method == "POST":
         form = CustomerRegisterForm(request.POST)
-
         if form.is_valid():
             user = form.save()
             login(request, user)
@@ -114,8 +136,4 @@ def register(request):
     else:
         form = CustomerRegisterForm()
 
-    return render(
-        request,
-        "registration/register.html",
-        {"form": form},
-    )
+    return render(request, "registration/register.html", {"form": form})

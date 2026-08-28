@@ -75,7 +75,6 @@ ALLOWED_HOSTS = [
 ]
 
 # NGINX reverse proxy arkasında CSRF ve host doğrulaması
-USE_X_FORWARDED_HOST = True
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 CSRF_TRUSTED_ORIGINS = [
     "http://185.22.185.98",

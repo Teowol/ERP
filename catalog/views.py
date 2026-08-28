@@ -71,11 +71,16 @@ def product_detail(request, pk):
 
     stocks = variant.product.stocks.select_related("warehouse")
 
+    is_buyer = (
+        request.user.is_authenticated
+        and request.user.groups.filter(name="Buyer").exists()
+    )
     return render(
         request,
         "catalog/product_detail.html",
         {
             "variant": variant,
             "stocks": stocks,
+            "is_buyer": is_buyer,
         },
     )

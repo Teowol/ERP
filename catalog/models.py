@@ -1,5 +1,7 @@
 from django.db import models
 from inventory.models import Product
+from decimal import Decimal
+from django.core.validators import MinValueValidator
 
 class ShoeModel(models.Model):
     """Spor ayakkabı ana model tanımı (Örn: Pegasus Pro, Air Runner)."""
@@ -94,6 +96,13 @@ class ProductVariant(models.Model):
         on_delete=models.CASCADE,
         related_name="variant_details",
         verbose_name="İlişkili Envanter Ürünü",
+    )
+    price = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        default=Decimal("0"),
+        validators=[MinValueValidator(Decimal("0"))],
+        verbose_name="Satış Fiyatı",
     )
     is_active = models.BooleanField(default=True, verbose_name="Aktif mi?")
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="Oluşturulma Tarihi")

@@ -62,6 +62,7 @@
             cursor: pointer;
             font-weight: 700;
         }
+        button:hover { background: var(--gold-soft); }
         .error { margin-top: 15px; padding: 10px; color: #ffd5d5; border-radius: 6px; background: rgba(170, 40, 40, 0.25); font-size: 13px; }
         .bottom-link { margin: 21px 0 0; color: var(--muted); text-align: center; font-size: 14px; }
         a { color: var(--gold-soft); }
@@ -71,9 +72,12 @@
     <main class="card">
         <div class="brand">SPEEDERS</div>
         <h1>Giriş Yap</h1>
-        <p class="subtitle">ERP çalışma alanınıza erişin.</p>
+        <p class="subtitle">Müşteri veya firma yetkilisi hesabınızla giriş yapın.</p>
         <form method="post">
             {% csrf_token %}
+            {% if request.GET.next %}
+                <input type="hidden" name="next" value="{{ request.GET.next }}">
+            {% endif %}
             {% if form.non_field_errors %}
                 <div class="error">{{ form.non_field_errors }}</div>
             {% endif %}
@@ -83,7 +87,12 @@
             {{ form.password }}
             <button type="submit">Giriş Yap</button>
         </form>
-        <p class="bottom-link">Hesabınız yok mu? <a href="{% url 'register' %}">Üye olun</a></p>
+        <p class="bottom-link">
+            Müşteri değil misiniz? <a href="{% url 'register' %}">Müşteri kaydı oluşturun</a>
+        </p>
+        <p class="bottom-link" style="font-size: 12px; margin-top: 10px;">
+            Fabrika / firma yetkilisi girişi mevcut kullanıcı adı ve şifrenizle yapılır.
+        </p>
     </main>
 </body>
 </html>

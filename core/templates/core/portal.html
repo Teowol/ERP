@@ -140,7 +140,7 @@
         .section-heading p { margin: 0; color: var(--muted); font-size: 14px; }
         .module-grid {
             display: grid;
-            grid-template-columns: repeat(3, minmax(0, 1fr));
+            grid-template-columns: repeat(2, minmax(0, 1fr));
             gap: 18px;
             padding-bottom: 52px;
         }
@@ -231,7 +231,7 @@
                 <h1>Fabrika Operasyonlarınızı tek merkezden yönetin.</h1>
                 <p class="hero-text">
                     SPEEDERS için tasarlanan kurumsal yönetim sistemiyle;
-                    ürün, tedarik, stok, üretim, kalite ve dağıtım
+                    stok, üretim, kalite kontrol ve dağıtım/satış
                     operasyonlarınızı tek çalışma alanında birleştirin.
                 </p>
             </div>
@@ -247,18 +247,11 @@
             </div>
 
             <div class="module-grid">
-                <a class="module-card" href="{% url 'catalog:product_list' %}">
-                    <div class="module-icon">◈</div>
-                    <h3>Ürün Kataloğu</h3>
-                    <p>Ürün kartları, kategoriler ve ürün detayları.</p>
-                    <span class="module-arrow">Modülü aç →</span>
-                </a>
-
-                <a class="module-card" href="{% url 'procurement:purchase_request_list' %}">
-                    <div class="module-icon">+</div>
-                    <h3>Satın Alma</h3>
-                    <p>Tedarikçi, satın alma talebi ve sipariş süreçleri.</p>
-                    <span class="module-arrow">Modülü aç →</span>
+                <a class="module-card" href="{% url 'ai:chat_page' %}">
+                    <div class="module-icon">✦</div>
+                    <h3>Yapay Zekâ Asistanı</h3>
+                    <p>Stok, üretim, kalite ve satış operasyonları hakkında hızlı destek alın.</p>
+                    <span class="module-arrow">Asistanı aç →</span>
                 </a>
 
                 <a class="module-card" href="{% url 'inventory:stock_level_list' %}">
@@ -285,9 +278,10 @@
                 <a class="module-card" href="{% url 'distribution:sales_order_list' %}">
                     <div class="module-icon">↗</div>
                     <h3>Dağıtım ve Satış</h3>
-                    <p>Müşteri, sipariş, fatura ve sevkiyat işlemleri.</p>
+                    <p>Sipariş, fatura, sevkiyat ve müşteri işlemleri.</p>
                     <span class="module-arrow">Modülü aç →</span>
                 </a>
+                
             </div>
         </section>
     </main>
