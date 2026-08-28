@@ -4,7 +4,6 @@ from django.contrib.auth.forms import UserCreationForm
 from django.contrib.auth.models import Group
 from django.contrib.auth import get_user_model
 from django.db import transaction
-from django.contrib.auth.decorators import login_required
 from django.shortcuts import redirect, render
 
 from distribution.models import Customer
@@ -89,18 +88,9 @@ def portal(request):
         return redirect("home")
 
     if request.user.groups.filter(name="Buyer").exists():
-        return redirect("customer_home")
+        return redirect("catalog:product_list")
 
     return render(request, "core/portal.html")
-
-
-@login_required
-def customer_home(request):
-    """Müşteri ana sayfası."""
-    if not request.user.groups.filter(name="Buyer").exists():
-        return redirect("portal")
-
-    return render(request, "core/customer_home.html")
 
 
 def register(request):
@@ -110,7 +100,7 @@ def register(request):
         if form.is_valid():
             user = form.save()
             login(request, user)
-            return redirect("customer_home")
+            return redirect("portal")
     else:
         form = CustomerRegisterForm()
 

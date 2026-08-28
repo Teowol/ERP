@@ -74,6 +74,15 @@ ALLOWED_HOSTS = [
     '127.0.0.1',
 ]
 
+# NGINX reverse proxy arkasında CSRF ve host doğrulaması
+USE_X_FORWARDED_HOST = True
+SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+CSRF_TRUSTED_ORIGINS = [
+    "http://185.22.185.98",
+    "https://185.22.185.98",
+]
+
+
 # Application definition
 
 INSTALLED_APPS = [
@@ -100,11 +109,11 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
-    'core.middleware.SentryModuleTagMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
+    'core.middleware.SentryModuleTagMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]

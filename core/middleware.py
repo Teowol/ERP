@@ -28,7 +28,7 @@ class SentryModuleTagMiddleware:
         sentry_sdk.set_tag("module", module)
         sentry_sdk.set_tag("environment", "production")
 
-        if request.user.is_authenticated:
+        if hasattr(request, "user") and request.user.is_authenticated:
             sentry_sdk.set_user({
                 "id": str(request.user.id),
                 "username": request.user.username,
