@@ -16,5 +16,7 @@ urlpatterns = [
 
     path("musteri/siparislerim/", views.customer_order_list, name="customer_order_list"),
     path("musteri/siparis/<int:pk>/", views.customer_order_detail, name="customer_order_detail"),
+    path("musteri/satin-al/", views.customer_purchase, name="customer_purchase"),
+    path("musteri/satin-al/<int:variant_pk>/", views.customer_purchase_detail, name="customer_purchase_detail"),
     path("musteri/varyant/<int:variant_pk>/siparis-ver/", views.customer_create_order, name="customer_create_order"),
 ]

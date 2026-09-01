@@ -207,19 +207,6 @@
                 <p class="empty">Bu ürün için henüz depo stok kaydı bulunmuyor.</p>
             {% endif %}
 
-            {% if is_buyer %}
-                <h2>Sipariş Ver</h2>
-                <form method="post" action="{% url 'distribution:customer_create_order' variant.pk %}" style="display:flex; gap:12px; align-items:flex-end; flex-wrap:wrap;">
-                    {% csrf_token %}
-                    <div>
-                        <label style="display:block; margin-bottom:6px; font-size:13px; color:var(--muted); font-weight:700;">Miktar</label>
-                        <input type="number" name="quantity" min="1" step="1" required style="min-height:40px; padding:8px 10px; border:1px solid var(--border); border-radius:6px;">
-                    </div>
-                    <button type="submit" style="min-height:40px; padding:8px 18px; border:0; border-radius:6px; color:var(--navy); background:var(--gold); font-weight:700; cursor:pointer;">
-                        Sipariş Ver
-                    </button>
-                </form>
-            {% endif %}
             <a class="back" href="{% url 'catalog:product_list' %}">← Kataloğa Dön</a>
         </div>
     </main>

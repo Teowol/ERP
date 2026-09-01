@@ -5,6 +5,9 @@ from django.db import models
 
 from django.conf import settings
 
+import uuid
+from django.utils import timezone
+
 class Customer(models.Model):
     user = models.OneToOneField(
         settings.AUTH_USER_MODEL,
@@ -34,6 +37,7 @@ class Customer(models.Model):
 
 class SalesOrder(models.Model):
     """Müşteri siparişleri."""
+
 
     class Status(models.TextChoices):
         DRAFT = "draft", "Taslak"

@@ -62,3 +62,141 @@ def notify_sales_order_confirmed(order_pk):
 
     status = "oluşturuldu" if created else "zaten mevcuttu"
     return f"Fatura {status}: {invoice.invoice_number} | E-posta gönderildi: {recipient}"
+
+@shared_task
+def process_order_fulfillment_task(order_pk, user_id=None):
+    """
+    Müşteri siparişini asenkron olarak işler:
+    - Depoda stok varsa rezerve edip kargo (Shipment) kaydı oluşturur.
+    - Stok yetersizse eksik kısım için Üretim Emri (ProductionOrder) açar.
+    """
+    from django.contrib.auth import get_user_model
+    from django.db import transaction
+    from inventory.models import Stock, StockMovement, Warehouse
+    from logistics.models import Shipment
+    from production.models import BillOfMaterial, ProductionLine, ProductionOrder, Routing
+    import uuid
+
+    User = get_user_model()
+    user = User.objects.filter(pk=user_id).first() if user_id else None
+
+    try:
+        order = SalesOrder.objects.prefetch_related("lines__product").get(pk=order_pk)
+    except SalesOrder.DoesNotExist:
+        return f"Sipariş bulunamadı: {order_pk}"
+
+    fg_wh = Warehouse.objects.filter(code="DEP-MM").first()
+    raw_wh = Warehouse.objects.filter(code="DEP-HM").first()
+    if not fg_wh:
+        return "Mamul deposu (DEP-MM) bulunamadı."
+
+    all_shipped = True
+
+    with transaction.atomic():
+        for line in order.lines.select_related("product"):
+            stock, _ = Stock.objects.select_for_update().get_or_create(
+                product=line.product,
+                warehouse=fg_wh,
+                defaults={"quantity": Decimal("0"), "reserved_quantity": Decimal("0")},
+            )
+            available = stock.available_quantity
+
+            # Bu kalem için zaten sevkiyat/üretim işlemi yapılmışsa tekrar işlem yapma
+            already_shipped = Shipment.objects.filter(sales_order_line=line).exists()
+            already_in_production = ProductionOrder.objects.filter(
+                reference_order_number=order.order_number, product=line.product
+            ).exists()
+            if already_shipped or already_in_production:
+                if already_in_production:
+                    all_shipped = False
+                continue
+
+            # 1. Senaryo: Depoda yeterli ürün var -> Doğrudan Kargoya Ver
+            if available >= line.quantity:
+                # Stoktan düşüş ve hareket kaydı
+                stock.quantity -= line.quantity
+                stock.save(update_fields=["quantity", "updated_at"])
+
+                StockMovement.objects.create(
+                    product=line.product,
+                    warehouse=fg_wh,
+                    movement_type=StockMovement.MovementType.OUT,
+                    quantity=line.quantity,
+                    reference_type="SalesOrder",
+                    reference_id=order.pk,
+                    note=f"Sipariş {order.order_number} sevkiyat çıkışı",
+                )
+
+                # Kargo / Sevkiyat kaydı oluştur
+                shipment_no = f"SHP-{order.order_number}-{uuid.uuid4().hex[:4].upper()}"
+                Shipment.objects.create(
+                    shipment_number=shipment_no,
+                    sales_order=order,
+                    sales_order_line=line,
+                    warehouse=fg_wh,
+                    quantity=line.quantity,
+                    status=Shipment.Status.SHIPPED,
+                    shipped_at=timezone.now(),
+                    note="Otomatik depo çıkışı ve kargolama",
+                )
+
+                line.shipped_quantity = line.quantity
+                line.save(update_fields=["shipped_quantity"])
+                continue
+
+            # 2. Senaryo: Stok yetersiz -> Eksik kısım için Üretim Emri
+            all_shipped = False
+            shortfall = line.quantity - max(available, Decimal("0"))
+
+            if available > 0:
+                stock.reserved_quantity += available
+                stock.save(update_fields=["reserved_quantity", "updated_at"])
+
+            bom = BillOfMaterial.objects.filter(
+                product=line.product, status=BillOfMaterial.Status.ACTIVE
+            ).first()
+            routing = Routing.objects.filter(
+                product=line.product, status=Routing.Status.ACTIVE
+            ).first()
+            prod_line = ProductionLine.objects.filter(is_active=True).first()
+
+            if not bom or not routing or not raw_wh or not prod_line:
+                continue
+
+            timestamp = timezone.now().strftime("%y%m%d%H%M%S")
+            po_number = f"PO-{order.order_number}-{line.pk}-{timestamp[-4:]}"
+
+            # Varsa mevcut üretim emrini tekrar oluşturmayalım
+            po, po_created = ProductionOrder.objects.get_or_create(
+                reference_order_number=order.order_number,
+                product=line.product,
+                defaults={
+                    "order_number": po_number,
+                    "bill_of_material": bom,
+                    "routing": routing,
+                    "production_line": prod_line,
+                    "raw_materials_warehouse": raw_wh,
+                    "finished_goods_warehouse": fg_wh,
+                    "planned_quantity": shortfall,
+                    "created_by": user or order.customer.user or User.objects.filter(is_superuser=True).first(),
+                    "planned_start_date": timezone.now(),
+                    "planned_end_date": order.promised_delivery_date or timezone.now(),
+                    "status": ProductionOrder.Status.PLANNED,
+                },
+            )
+            if po_created:
+                po.create_components_from_bom()
+                po.create_operations_from_routing()
+                try:
+                    po.release()
+                    po.start_production()
+                except ValueError:
+                    pass
+
+        if all_shipped:
+            order.status = SalesOrder.Status.SHIPPED
+        else:
+            order.status = SalesOrder.Status.IN_PRODUCTION
+        order.save(update_fields=["status", "updated_at"])
+
+    return f"Sipariş {order.order_number} işlendi. Durum: {order.status}"

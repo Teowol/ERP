@@ -81,14 +81,25 @@ def sales_order_detail(request, pk):
 
 def sales_order_create(request):
     """Yeni sipariş oluştur."""
-    customers = Customer.objects.filter(is_active=True)
+    buyer_mode = is_buyer(request.user)
+    locked_customer = None
+
+    if buyer_mode:
+        locked_customer = getattr(request.user, "customer_profile", None)
+        if not locked_customer:
+            messages.error(request, "Müşteri profiliniz bulunamadı.")
+            return redirect("customer_home")
+        customers = Customer.objects.filter(pk=locked_customer.pk)
+    else:
+        customers = Customer.objects.filter(is_active=True)
+
     products = Product.objects.filter(
         product_type=Product.ProductType.FINISHED_GOOD,
         is_active=True,
     )
 
     if request.method == "POST":
-        customer_id = request.POST.get("customer")
+        customer_id = locked_customer.pk if buyer_mode else request.POST.get("customer")
         requested_delivery_date = request.POST.get("requested_delivery_date")
         promised_delivery_date = request.POST.get("promised_delivery_date")
         note = request.POST.get("note", "").strip()
@@ -118,20 +129,25 @@ def sales_order_create(request):
                             unit_price=unit_price,
                         )
 
+                if buyer_mode:
+                    from .tasks import process_order_fulfillment_task
+                    order_pk = order.pk
+                    user_pk = request.user.pk
+                    transaction.on_commit(
+                        lambda: process_order_fulfillment_task.delay(order_pk, user_pk)
+                    )
+
             messages.success(request, f"{order.order_number} numaralı sipariş başarıyla oluşturuldu.")
+            if buyer_mode:
+                return redirect("distribution:customer_order_detail", pk=order.pk)
             return redirect("distribution:sales_order_detail", pk=order.pk)
 
     context = {
         "customers": customers,
         "products": products,
         "today": timezone.now().date().isoformat(),
-    }
-    return render(request, "distribution/sales_order_create.html", context)
-
-    context = {
-        "customers": customers,
-        "products": products,
-        "today": timezone.now().date().isoformat(),
+        "buyer_mode": buyer_mode,
+        "locked_customer": locked_customer,
     }
     return render(request, "distribution/sales_order_create.html", context)
 
@@ -649,7 +665,7 @@ def _process_customer_order(order, user):
 
 @login_required
 def customer_create_order(request, variant_pk):
-    """Müşteri ürün detayından sipariş oluşturur."""
+    """Müşteri satın alma ekranından sipariş oluşturur."""
     if not is_buyer(request.user):
         return redirect("portal")
 
@@ -658,20 +674,20 @@ def customer_create_order(request, variant_pk):
 
     if not customer:
         messages.error(request, "Müşteri profiliniz bulunamadı.")
-        return redirect("catalog:product_detail", pk=variant_pk)
+        return redirect("distribution:customer_purchase_detail", variant_pk=variant_pk)
 
     if request.method != "POST":
-        return redirect("catalog:product_detail", pk=variant_pk)
+        return redirect("distribution:customer_purchase_detail", variant_pk=variant_pk)
 
     try:
         quantity = Decimal(request.POST.get("quantity", "").strip())
     except (InvalidOperation, AttributeError):
         messages.error(request, "Geçerli bir miktar giriniz.")
-        return redirect("catalog:product_detail", pk=variant_pk)
+        return redirect("distribution:customer_purchase_detail", variant_pk=variant_pk)
 
     if quantity <= 0:
         messages.error(request, "Miktar sıfırdan büyük olmalıdır.")
-        return redirect("catalog:product_detail", pk=variant_pk)
+        return redirect("distribution:customer_purchase_detail", variant_pk=variant_pk)
 
     timestamp = timezone.now().strftime("%y%m%d%H%M%S")
     order_number = f"SO-{customer.code}-{timestamp}"
@@ -689,13 +705,53 @@ def customer_create_order(request, variant_pk):
             unit_price=variant.price,
         )
 
-    try:
-        _process_customer_order(order, request.user)
-        messages.success(request, "Siparişiniz oluşturuldu.")
-    except Exception as exc:
-        messages.warning(
-            request,
-            f"Sipariş oluşturuldu ancak otomatik işlemde sorun oluştu: {exc}",
-        )
+    from .tasks import process_order_fulfillment_task
+    order_pk = order.pk
+    user_pk = request.user.pk
+    transaction.on_commit(
+        lambda: process_order_fulfillment_task.delay(order_pk, user_pk)
+    )
+    messages.success(request, f"{order.order_number} numaralı siparişiniz oluşturuldu.")
 
     return redirect("distribution:customer_order_detail", pk=order.pk)
+
+def customer_purchase(request):
+    """Müşterinin ürün seçip satın alabileceği ekran."""
+    if not is_buyer(request.user):
+        return redirect("portal")
+
+    query = request.GET.get("q", "").strip()
+
+    variants = ProductVariant.objects.select_related(
+        "shoe_model", "color", "size", "product"
+    ).filter(is_active=True)
+
+    if query:
+        variants = variants.filter(
+            Q(sku__icontains=query)
+            | Q(shoe_model__name__icontains=query)
+        )
+
+    return render(
+        request,
+        "distribution/customer_purchase.html",
+        {"variants": variants, "query": query},
+    )
+
+
+def customer_purchase_detail(request, variant_pk):
+    """Seçilen ürün için miktar girilip sipariş oluşturulan ekran."""
+    if not is_buyer(request.user):
+        return redirect("portal")
+
+    variant = get_object_or_404(
+        ProductVariant.objects.select_related("shoe_model", "color", "size", "product"),
+        pk=variant_pk,
+        is_active=True,
+    )
+
+    return render(
+        request,
+        "distribution/customer_purchase_detail.html",
+        {"variant": variant},
+    )

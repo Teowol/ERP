@@ -27,12 +27,19 @@
                 <div class="form-row" style="grid-template-columns: 1fr 1fr;">
                     <div class="form-group">
                         <label>Müşteri</label>
-                        <select name="customer" required>
-                            <option value="">Seçiniz</option>
-                            {% for c in customers %}
-                            <option value="{{ c.pk }}">{{ c.code }} - {{ c.name }}</option>
-                            {% endfor %}
-                        </select>
+                        {% if buyer_mode %}
+                            <input type="hidden" name="customer" value="{{ locked_customer.pk }}">
+                            <div class="readonly-field" style="padding:10px 12px; border:1px solid var(--border); border-radius:6px; background:#f4f6fa;">
+                                {{ locked_customer.code }} - {{ locked_customer.name }}
+                            </div>
+                        {% else %}
+                            <select name="customer" required>
+                                <option value="">Müşteri Seçin</option>
+                                {% for c in customers %}
+                                <option value="{{ c.pk }}">{{ c.code }} - {{ c.name }}</option>
+                                {% endfor %}
+                            </select>
+                        {% endif %}
                     </div>
                 </div>
                 <div class="form-row" style="grid-template-columns: 1fr 1fr 1fr; margin-top: 1rem;">
