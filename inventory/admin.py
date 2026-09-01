@@ -5,6 +5,7 @@ from django.contrib import admin
 from django.contrib import admin
 
 from inventory.models import (
+    Lot,
     Product,
     ProductCategory,
     Stock,
@@ -54,11 +55,29 @@ class StockAdmin(admin.ModelAdmin):
     search_fields = ["product__code", "product__name"]
 
 
+@admin.register(Lot)
+class LotAdmin(admin.ModelAdmin):
+    list_display = [
+        "lot_number",
+        "product",
+        "status",
+        "initial_quantity",
+        "remaining_quantity",
+        "manufactured_date",
+        "expiry_date",
+        "created_at",
+    ]
+    list_filter = ["status", "product"]
+    search_fields = ["lot_number", "product__code", "product__name"]
+    readonly_fields = ["created_at", "updated_at"]
+
+
 @admin.register(StockMovement)
 class StockMovementAdmin(admin.ModelAdmin):
     list_display = [
         "product",
         "warehouse",
+        "lot",
         "movement_type",
         "quantity",
         "reference_type",
@@ -66,4 +85,4 @@ class StockMovementAdmin(admin.ModelAdmin):
         "created_at",
     ]
     list_filter = ["movement_type", "warehouse"]
-    search_fields = ["product__code", "product__name"]
+    search_fields = ["product__code", "product__name", "lot__lot_number"]

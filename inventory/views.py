@@ -1,8 +1,10 @@
+from decimal import Decimal
+
 from django.db import models
 from django.db.models import Q
 from django.shortcuts import get_object_or_404, render
 
-from .models import Product, Stock, StockMovement, Warehouse
+from .models import Lot, Product, Stock, StockMovement, Warehouse
 
 
 def stock_level_list(request):
@@ -37,6 +39,44 @@ def stock_level_list(request):
         "current_low_stock": low_stock_filter,
     }
     return render(request, "inventory/stock_level_list.html", context)
+
+
+def lot_tracking_list(request):
+    """Lot bazlı takip ekranı; üretim ve stok bağlamında hangi parti ne kadar kaldığını gösterir."""
+    queryset = Lot.objects.select_related("product", "product__category").all()
+
+    product_filter = request.GET.get("product", "").strip()
+    status_filter = request.GET.get("status", "").strip()
+
+    if product_filter:
+        queryset = queryset.filter(
+            Q(product__code__icontains=product_filter)
+            | Q(product__name__icontains=product_filter)
+            | Q(lot_number__icontains=product_filter)
+        )
+
+    if status_filter:
+        queryset = queryset.filter(status=status_filter)
+
+    lots = []
+    for lot in queryset:
+        remaining = lot.remaining_quantity
+        usage_rate = (Decimal("100") * remaining / lot.initial_quantity) if lot.initial_quantity else Decimal("0")
+        usage_percent = max(Decimal("0"), min(usage_rate, Decimal("100")))
+        lots.append({
+            "lot": lot,
+            "remaining": remaining,
+            "usage_rate": usage_rate,
+            "usage_percent": usage_percent,
+        })
+
+    context = {
+        "lots": lots,
+        "statuses": Lot.Status.choices,
+        "current_product": product_filter,
+        "current_status": status_filter,
+    }
+    return render(request, "inventory/lot_tracking_list.html", context)
 
 
 def stock_movement_list(request):

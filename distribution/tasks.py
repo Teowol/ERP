@@ -5,6 +5,7 @@ import os
 from celery import shared_task
 from django.conf import settings
 from django.core.mail import send_mail
+from django.db.models import Sum
 from django.utils import timezone
 
 from .models import Invoice, SalesOrder
@@ -103,6 +104,75 @@ def notify_sales_order_confirmed(order_pk):
             f"Fatura {status}: {invoice.invoice_number} | "
             f"E-posta gönderildi: {recipient}"
         )
+
+def _allocate_fifo_lots(product, warehouse, quantity):
+    """
+    Ürün miktarını FIFO kuralıyla lotlardan ayırır.
+
+    Dönen değer:
+        [(lot, miktar), ...]
+
+    Lot miktarı yetersizse ValueError oluşturur. Böylece sevkiyatın
+    yanlış veya eksik lot bilgisiyle yapılması engellenir.
+    """
+    from inventory.models import Lot, StockMovement
+
+    remaining = quantity
+    allocations = []
+
+    lots = (
+        Lot.objects
+        .select_for_update()
+        .filter(
+            product=product,
+            status=Lot.Status.ACTIVE,
+            stock_movements__warehouse=warehouse,
+        )
+        .distinct()
+        .order_by("created_at", "pk")
+    )
+
+    for lot in lots:
+        if remaining <= Decimal("0"):
+            break
+
+        incoming = (
+            StockMovement.objects
+            .filter(
+                lot=lot,
+                warehouse=warehouse,
+                movement_type=StockMovement.MovementType.IN,
+            )
+            .aggregate(total=Sum("quantity"))["total"]
+            or Decimal("0")
+        )
+        outgoing = (
+            StockMovement.objects
+            .filter(
+                lot=lot,
+                warehouse=warehouse,
+                movement_type=StockMovement.MovementType.OUT,
+            )
+            .aggregate(total=Sum("quantity"))["total"]
+            or Decimal("0")
+        )
+
+        lot_available = incoming - outgoing
+        if lot_available <= Decimal("0"):
+            continue
+
+        allocated = min(lot_available, remaining)
+        allocations.append((lot, allocated))
+        remaining -= allocated
+
+    if remaining > Decimal("0"):
+        raise ValueError(
+            f"{product} ürünü için lot bazlı stok yetersiz. "
+            f"Eksik lot miktarı: {remaining}"
+        )
+
+    return allocations
+
 
 @shared_task
 def process_order_fulfillment_task(order_pk, user_id=None):

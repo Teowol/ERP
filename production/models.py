@@ -456,8 +456,10 @@ class ProductionOrder(models.Model):
 
     @transaction.atomic
     def complete_production(self, user=None):
-        """Üretimi tamamlar; mamul girişi ve kalan malzeme tüketimini yapar."""
+        """Üretimi tamamlar; lot oluşturur, mamul girişini ve kalan malzeme
+        tüketimini bu lot üzerinden yapar."""
         StockMovement = apps.get_model("inventory", "StockMovement")
+        Lot = apps.get_model("inventory", "Lot")
         if self.status not in [self.Status.IN_PROGRESS, self.Status.QUALITY_CHECK]:
             raise ValueError(
                 "Üretim tamamlanabilmesi için emir 'Üretimde' veya 'Kalite Kontrolde' olmalı."
@@ -477,9 +479,22 @@ class ProductionOrder(models.Model):
                 "updated_at",
             ]
         )
+
+        lot = Lot.objects.create(
+            product=self.product,
+            lot_number=f"LOT-{self.order_number}",
+            reference_type="production_order",
+            reference_id=self.pk,
+            manufactured_date=timezone.now().date(),
+            initial_quantity=self.produced_quantity,
+            status=Lot.Status.ACTIVE,
+            note=f"Üretim emri {self.order_number} çıktısı.",
+        )
+
         StockMovement.objects.create(
             product=self.product,
             warehouse=self.finished_goods_warehouse,
+            lot=lot,
             movement_type=StockMovement.MovementType.IN,
             quantity=self.produced_quantity,
             reference_type="production_order",

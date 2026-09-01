@@ -101,6 +101,85 @@ class Warehouse(models.Model):
         return f"{self.code} - {self.name}"
 
 
+class Lot(models.Model):
+    """Ürün lot / parti takibi. Üretimden çıkan veya satın alınan her parti
+    için benzersiz bir lot numarası tutulur."""
+
+    class Status(models.TextChoices):
+        ACTIVE = "active", "Aktif"
+        QUARANTINED = "quarantined", "Karantinada"
+        CONSUMED = "consumed", "Tükendi"
+        EXPIRED = "expired", "Süresi Doldu"
+
+    product = models.ForeignKey(
+        Product,
+        on_delete=models.PROTECT,
+        related_name="lots",
+        verbose_name="Ürün",
+    )
+    lot_number = models.CharField(
+        max_length=60,
+        unique=True,
+        verbose_name="Lot Numarası",
+    )
+    reference_type = models.CharField(
+        max_length=50,
+        blank=True,
+        help_text="Lotun oluştuğu kayıt türü. Örneğin: ProductionOrder, PurchaseOrder.",
+        verbose_name="Referans Türü",
+    )
+    reference_id = models.PositiveBigIntegerField(
+        null=True,
+        blank=True,
+        verbose_name="Referans ID",
+    )
+    manufactured_date = models.DateField(
+        null=True,
+        blank=True,
+        verbose_name="Üretim Tarihi",
+    )
+    expiry_date = models.DateField(
+        null=True,
+        blank=True,
+        verbose_name="Son Kullanma Tarihi",
+    )
+    initial_quantity = models.DecimalField(
+        max_digits=14,
+        decimal_places=3,
+        default=Decimal("0"),
+        validators=[MinValueValidator(Decimal("0"))],
+        verbose_name="Başlangıç Miktarı",
+    )
+    status = models.CharField(
+        max_length=20,
+        choices=Status.choices,
+        default=Status.ACTIVE,
+        verbose_name="Durum",
+    )
+    note = models.TextField(blank=True, verbose_name="Not")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+        verbose_name = "Lot"
+        verbose_name_plural = "Lotlar"
+
+    @property
+    def remaining_quantity(self):
+        """Bu lottan hâlâ stokta kalan net miktar (giriş - çıkış)."""
+        in_qty = self.stock_movements.filter(
+            movement_type=StockMovement.MovementType.IN
+        ).aggregate(total=models.Sum("quantity"))["total"] or Decimal("0")
+        out_qty = self.stock_movements.filter(
+            movement_type=StockMovement.MovementType.OUT
+        ).aggregate(total=models.Sum("quantity"))["total"] or Decimal("0")
+        return in_qty - out_qty
+
+    def __str__(self):
+        return f"{self.lot_number} ({self.product.code})"
+
+
 class Stock(models.Model):
     """Ürünün depodaki mevcut, ayrılmış ve kullanılabilir miktarı."""
 
@@ -165,6 +244,15 @@ class StockMovement(models.Model):
         Warehouse,
         on_delete=models.PROTECT,
         related_name="stock_movements",
+    )
+    lot = models.ForeignKey(
+        "Lot",
+        on_delete=models.PROTECT,
+        related_name="stock_movements",
+        null=True,
+        blank=True,
+        verbose_name="Lot",
+        help_text="Bu hareketin ilişkili olduğu lot (varsa).",
     )
     movement_type = models.CharField(
         max_length=20,
