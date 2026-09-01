@@ -4,6 +4,9 @@ from django.db import models
 from django.db.models import Q
 from django.shortcuts import get_object_or_404, render
 
+from production.models import ProductionOrder
+from quality.models import QualityCheck
+
 from .models import Lot, Product, Stock, StockMovement, Warehouse
 
 
@@ -77,6 +80,48 @@ def lot_tracking_list(request):
         "current_status": status_filter,
     }
     return render(request, "inventory/lot_tracking_list.html", context)
+
+
+def fire_tracking_list(request):
+    """Üretim fire / hurda kayıtlarını takip eder; ürün, emir ve sonuç bazlı filtreleme sunar."""
+    queryset = QualityCheck.objects.select_related(
+        "production_order",
+        "production_order__product",
+        "checked_by",
+    ).filter(scrapped_quantity__gt=0).order_by("-check_date")
+
+    product_filter = request.GET.get("product", "").strip()
+    result_filter = request.GET.get("result", "").strip()
+
+    if product_filter:
+        queryset = queryset.filter(
+            Q(production_order__order_number__icontains=product_filter)
+            | Q(production_order__product__code__icontains=product_filter)
+            | Q(production_order__product__name__icontains=product_filter)
+        )
+
+    if result_filter:
+        queryset = queryset.filter(result=result_filter)
+
+    fire_rows = []
+    for check in queryset:
+        fire_rate = (
+            (Decimal("100") * check.scrapped_quantity / check.checked_quantity)
+            if check.checked_quantity
+            else Decimal("0")
+        )
+        fire_rows.append({
+            "check": check,
+            "fire_rate": max(Decimal("0"), min(fire_rate, Decimal("100"))),
+        })
+
+    context = {
+        "fire_rows": fire_rows,
+        "result_choices": QualityCheck.Result.choices,
+        "current_product": product_filter,
+        "current_result": result_filter,
+    }
+    return render(request, "inventory/fire_tracking_list.html", context)
 
 
 def stock_movement_list(request):
