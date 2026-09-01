@@ -1,0 +1,30 @@
+nohup: ignoring input
+ 
+ -------------- celery@ns1.localhost.com v5.6.3 (recovery)
+--- ***** ----- 
+-- ******* ---- Linux-6.8.0-138-generic-x86_64-with-glibc2.39 2026-09-01 11:35:03
+- *** --- * --- 
+- ** ---------- [config]
+- ** ---------- .> app:         erp:0x715d63f95100
+- ** ---------- .> transport:   redis://127.0.0.1:6379/2
+- ** ---------- .> results:     
+- *** --- * --- .> concurrency: 2 (prefork)
+-- ******* ---- .> task events: OFF (enable -E to monitor tasks in this worker)
+--- ***** ----- 
+ -------------- [queues]
+                .> celery           exchange=celery(direct) key=celery
+                
+
+[tasks]
+  . core.tasks.test_celery_task
+  . distribution.tasks.notify_sales_order_confirmed
+  . distribution.tasks.process_order_fulfillment_task
+  . distribution.tasks.ship_fulfilled_production_task
+  . inventory.tasks.check_critical_stock_levels
+
+[2026-09-01 11:35:04,765: INFO/MainProcess] Connected to redis://127.0.0.1:6379/2
+[2026-09-01 11:35:04,807: INFO/MainProcess] mingle: searching for neighbors
+[2026-09-01 11:35:05,888: INFO/MainProcess] mingle: all alone
+[2026-09-01 11:35:06,023: INFO/MainProcess] celery@ns1.localhost.com ready.
+[2026-09-01 11:37:36,274: INFO/MainProcess] Task distribution.tasks.process_order_fulfillment_task[bb2f2d42-1b60-4fae-966a-45d141e7f4c0] received
+[2026-09-01 11:37:36,558: INFO/ForkPoolWorker-1] Task distribution.tasks.process_order_fulfillment_task[bb2f2d42-1b60-4fae-966a-45d141e7f4c0] succeeded in 0.27245879697147757s: 'Sipariş SO-CUST-00004-260901113736 işlendi. Durum: shipped'

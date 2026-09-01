@@ -1,4 +1,5 @@
 from decimal import Decimal, InvalidOperation
+import os
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.db import transaction
@@ -10,8 +11,21 @@ from catalog.models import ProductVariant
 from inventory.models import Product, Stock, Warehouse
 from production.models import BillOfMaterial, ProductionLine, ProductionOrder, Routing
 
-from .models import Customer, SalesOrder, SalesOrderLine
+from .models import Customer, SalesOrder, SalesOrderLine, Invoice
 from .tasks import notify_sales_order_confirmed
+
+import io
+from reportlab.lib.pagesizes import A4
+from reportlab.lib import colors
+from reportlab.lib.units import cm
+from reportlab.platypus import (
+    SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, HRFlowable, Image,
+)
+from reportlab.lib.styles import ParagraphStyle
+from reportlab.pdfbase import pdfmetrics
+from reportlab.pdfbase.ttfonts import TTFont
+from django.conf import settings
+from django.http import HttpResponse
 
 
 def is_buyer(user):
@@ -198,7 +212,12 @@ def sales_order_confirm(request, pk):
         order.status = SalesOrder.Status.CONFIRMED
         order.save()
 
-    messages.success(request, "Sipariş onaylandı ve stok rezerve edildi.")
+        # Sipariş onaylandığında müşteriye fatura mailini gönder
+        transaction.on_commit(
+            lambda: notify_sales_order_confirmed.delay(order.pk)
+        )
+
+    messages.success(request, "Sipariş onaylandı ve stok rezerve edildi. Fatura müşteriye gönderilecektir.")
     return redirect("distribution:sales_order_detail", pk=order.pk)
 
 
@@ -352,21 +371,7 @@ def create_production_order_from_line(request, line_pk):
     messages.success(request, f"{po.order_number} numaralı üretim emri ve operasyon adımları oluşturuldu.")
     return redirect("production:order_detail", pk=po.pk)
 
-import io
-from reportlab.lib.pagesizes import A4
-from reportlab.lib import colors
-from reportlab.lib.units import cm
-from reportlab.platypus import (
-    SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, HRFlowable, Image,
-)
-from reportlab.lib.styles import ParagraphStyle
-from reportlab.pdfbase import pdfmetrics
-from reportlab.pdfbase.ttfonts import TTFont
-from django.conf import settings
-from django.http import HttpResponse
-from django.shortcuts import get_object_or_404
-from .models import Invoice
-import os
+
 
 pdfmetrics.registerFont(TTFont("DejaVuSans", "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"))
 pdfmetrics.registerFont(TTFont("DejaVuSans-Bold", "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"))
@@ -376,12 +381,8 @@ BRAND_COLOR = colors.HexColor("#1a3c6e")
 LIGHT_BG = colors.HexColor("#eef2f8")
 
 
-def invoice_pdf(request, invoice_pk):
-    """Fatura PDF dosyası oluştur ve indir."""
-    invoice = get_object_or_404(
-        Invoice.objects.select_related("sales_order", "customer"),
-        pk=invoice_pk,
-    )
+def build_invoice_pdf_bytes(invoice):
+    """Fatura kaydı için PDF byte içeriği oluşturur (indirme ve e-posta eki için)."""
     order = invoice.sales_order
 
     buffer = io.BytesIO()
@@ -523,13 +524,28 @@ def invoice_pdf(request, invoice_pk):
         [f"KDV (%{invoice.tax_rate:g}):", f"{invoice.tax_amount:.2f} TL"],
         ["GENEL TOPLAM:", f"{invoice.total_amount:.2f} TL"],
     ]
-    totals_table = Table(totals_data, colWidths=[4 * cm, 4 * cm])
+
+    totals_table = Table(
+        totals_data,
+        colWidths=[5.8 * cm, 4.2 * cm],
+    )
+
     totals_table.setStyle(TableStyle([
         ("FONTNAME", (0, 0), (-1, 1), "DejaVuSans"),
         ("FONTNAME", (0, 2), (-1, 2), "DejaVuSans-Bold"),
-        ("FONTSIZE", (0, 0), (-1, -1), 10),
+        ("FONTSIZE", (0, 0), (-1, 1), 10),
         ("FONTSIZE", (0, 2), (-1, 2), 13),
-        ("ALIGN", (0, 0), (-1, -1), "RIGHT"),
+
+        # Etiketler ve tutarlar düzgün hizalanır.
+        ("ALIGN", (0, 0), (0, -1), "LEFT"),
+        ("ALIGN", (1, 0), (1, -1), "RIGHT"),
+        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+
+        ("LEFTPADDING", (0, 0), (-1, -1), 6),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 6),
+        ("TOPPADDING", (0, 0), (-1, 1), 5),
+        ("BOTTOMPADDING", (0, 0), (-1, 1), 5),
+
         ("BACKGROUND", (0, 2), (-1, 2), LIGHT_BG),
         ("LINEABOVE", (0, 2), (-1, 2), 1, BRAND_COLOR),
         ("TOPPADDING", (0, 2), (-1, 2), 8),
@@ -537,7 +553,18 @@ def invoice_pdf(request, invoice_pk):
         ("TEXTCOLOR", (0, 2), (-1, 2), BRAND_COLOR),
     ]))
 
-    totals_wrapper = Table([["", totals_table]], colWidths=[10.5 * cm, 6.5 * cm])
+    # Sayfanın sağ kenarına düzgün oturur.
+    totals_wrapper = Table(
+        [["", totals_table]],
+        colWidths=[8 * cm, 10 * cm],
+    )
+    totals_wrapper.setStyle(TableStyle([
+        ("VALIGN", (0, 0), (-1, -1), "TOP"),
+        ("LEFTPADDING", (0, 0), (-1, -1), 0),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 0),
+        ("TOPPADDING", (0, 0), (-1, -1), 0),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 0),
+    ]))
     elements.append(totals_wrapper)
     elements.append(Spacer(1, 1 * cm))
 
@@ -552,10 +579,20 @@ def invoice_pdf(request, invoice_pk):
 
     doc.build(elements)
     buffer.seek(0)
+    return buffer.getvalue()
 
-    response = HttpResponse(buffer, content_type="application/pdf")
+
+def invoice_pdf(request, invoice_pk):
+    """Fatura PDF dosyası oluştur ve indir."""
+    invoice = get_object_or_404(
+        Invoice.objects.select_related("sales_order", "customer"),
+        pk=invoice_pk,
+    )
+    pdf_bytes = build_invoice_pdf_bytes(invoice)
+    response = HttpResponse(pdf_bytes, content_type="application/pdf")
     response["Content-Disposition"] = f'attachment; filename="{invoice.invoice_number}.pdf"'
     return response
+
 
 @login_required
 def customer_order_list(request):
@@ -589,7 +626,7 @@ def customer_order_detail(request, pk):
     )
 
 
-@transaction.atomic
+@transaction.atomic()
 def _process_customer_order(order, user):
     """
     Sipariş kalemlerini kontrol eder:

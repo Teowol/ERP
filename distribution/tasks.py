@@ -1,5 +1,6 @@
 from datetime import timedelta
 from decimal import Decimal
+import os
 
 from celery import shared_task
 from django.conf import settings
@@ -11,57 +12,97 @@ from .models import Invoice, SalesOrder
 
 @shared_task
 def notify_sales_order_confirmed(order_pk):
-    """Sipariş onaylandığında fatura oluştur ve bildirim e-postası gönder."""
-    try:
-        order = SalesOrder.objects.select_related("customer").get(pk=order_pk)
-    except SalesOrder.DoesNotExist:
-        return f"Sipariş bulunamadı: {order_pk}"
+    """
+    Faturayı oluşturur ve müşteriye PDF ekiyle tek kez gönderir.
+    Aynı sipariş için paralel Celery görevleri çalışsa bile
+    select_for_update sayesinde çift e-posta gönderilmez.
+    """
+    from django.core.mail import EmailMessage
+    from django.db import transaction
+    from distribution.views import build_invoice_pdf_bytes
 
-    tax_rate = Decimal("20.00")
-    tax_factor = tax_rate / Decimal("100")
-    total_with_tax = order.total_amount * (Decimal("1") + tax_factor)
+    with transaction.atomic():
+        try:
+            order = (
+                SalesOrder.objects
+                .select_for_update()
+                .select_related("customer")
+                .get(pk=order_pk)
+            )
+        except SalesOrder.DoesNotExist:
+            return f"Sipariş bulunamadı: {order_pk}"
 
-    # Fatura oluştur (henüz yoksa)
-    invoice, created = Invoice.objects.get_or_create(
-        sales_order=order,
-        defaults={
-            "customer": order.customer,
-            "issue_date": timezone.now().date(),
-            "due_date": timezone.now().date() + timedelta(days=30),
-            "subtotal": order.total_amount,
-            "tax_rate": tax_rate,
-            "tax_amount": order.total_amount * tax_factor,
-            "total_amount": total_with_tax,
-            "status": Invoice.Status.ISSUED,
-        },
-    )
+        customer = order.customer
+        recipient = customer.email
 
-    recipient = getattr(settings, "ERP_NOTIFICATION_EMAIL", None)
+        if not recipient:
+            return "Müşteri e-posta adresi tanımlı değil."
 
-    if not recipient:
-        return "ERP_NOTIFICATION_EMAIL tanımlı değil."
+        tax_rate = Decimal("20.00")
+        tax_factor = tax_rate / Decimal("100")
+        subtotal = order.total_amount
+        tax_amount = subtotal * tax_factor
+        total_with_tax = subtotal + tax_amount
 
-    subject = f"Sipariş Onaylandı - {order.order_number}"
-    message = (
-        f"Sayın {order.customer.name},\n\n"
-        f"{order.order_number} numaralı siparişiniz onaylanmıştır.\n"
-        f"Fatura numarası: {invoice.invoice_number}\n"
-        f"Sipariş toplamı: {order.total_amount}\n"
-        f"KDV dahil toplam: {invoice.total_amount}\n"
-        f"Taahhüt edilen teslim tarihi: {order.promised_delivery_date or 'Belirtilmedi'}\n\n"
-        f"Sipariş detaylarınız için ERP sistemine giriş yapabilirsiniz.\n"
-    )
+        invoice, created = Invoice.objects.get_or_create(
+            sales_order=order,
+            defaults={
+                "customer": customer,
+                "issue_date": timezone.now().date(),
+                "due_date": timezone.now().date() + timedelta(days=30),
+                "subtotal": subtotal,
+                "tax_rate": tax_rate,
+                "tax_amount": tax_amount,
+                "total_amount": total_with_tax,
+                "status": Invoice.Status.ISSUED,
+            },
+        )
 
-    send_mail(
-        subject=subject,
-        message=message,
-        from_email=getattr(settings, "DEFAULT_FROM_EMAIL", "noreply@erp.local"),
-        recipient_list=[recipient],
-        fail_silently=False,
-    )
+        # Başka bir task e-postayı gönderdiyse ikinci kez gönderme.
+        if invoice.emailed_at:
+            return (
+                f"Fatura {invoice.invoice_number} daha önce gönderilmiş: "
+                f"{invoice.emailed_at}"
+            )
 
-    status = "oluşturuldu" if created else "zaten mevcuttu"
-    return f"Fatura {status}: {invoice.invoice_number} | E-posta gönderildi: {recipient}"
+        pdf_bytes = build_invoice_pdf_bytes(invoice)
+
+        email = EmailMessage(
+            subject=f"Faturanız - {invoice.invoice_number}",
+            body=(
+                f"Sayın {customer.name},\n\n"
+                f"{order.order_number} numaralı siparişinize ait "
+                f"faturanız ektedir.\n\n"
+                f"Fatura numarası: {invoice.invoice_number}\n"
+                f"Ara toplam: {invoice.subtotal:.2f} TL\n"
+                f"KDV: {invoice.tax_amount:.2f} TL\n"
+                f"Genel toplam: {invoice.total_amount:.2f} TL\n\n"
+                "Bizi tercih ettiğiniz için teşekkür ederiz."
+            ),
+            from_email=getattr(
+                settings,
+                "DEFAULT_FROM_EMAIL",
+                "noreply@erp.local",
+            ),
+            to=[recipient],
+        )
+
+        email.attach(
+            f"{invoice.invoice_number}.pdf",
+            pdf_bytes,
+            "application/pdf",
+        )
+        email.send(fail_silently=False)
+
+        # E-posta transaction içinde işaretleniyor.
+        invoice.emailed_at = timezone.now()
+        invoice.save(update_fields=["emailed_at", "updated_at"])
+
+        status = "oluşturuldu" if created else "zaten mevcuttu"
+        return (
+            f"Fatura {status}: {invoice.invoice_number} | "
+            f"E-posta gönderildi: {recipient}"
+        )
 
 @shared_task
 def process_order_fulfillment_task(order_pk, user_id=None):
@@ -199,4 +240,98 @@ def process_order_fulfillment_task(order_pk, user_id=None):
             order.status = SalesOrder.Status.IN_PRODUCTION
         order.save(update_fields=["status", "updated_at"])
 
+    if order.status == SalesOrder.Status.SHIPPED:
+        notify_sales_order_confirmed.delay(order.pk)
+
     return f"Sipariş {order.order_number} işlendi. Durum: {order.status}"
+
+@shared_task
+def ship_fulfilled_production_task(production_order_pk, user_id=None):
+    """Üretim tamamlanan ürünleri, bağlı sipariş varsa otomatik sevkiyat eder."""
+    from django.contrib.auth import get_user_model
+    from django.db import transaction
+    from inventory.models import Stock, StockMovement, Warehouse
+    from logistics.models import Shipment
+    from production.models import ProductionOrder
+    import uuid
+
+    User = get_user_model()
+
+    try:
+        po = ProductionOrder.objects.get(pk=production_order_pk)
+    except ProductionOrder.DoesNotExist:
+        return f"Üretim emri bulunamadı: {production_order_pk}"
+
+    if not po.reference_order_number:
+        return "Üretim emrinin sipariş referansı yok."
+
+    try:
+        order = SalesOrder.objects.get(order_number=po.reference_order_number)
+    except SalesOrder.DoesNotExist:
+        return f"İlişkili sipariş bulunamadı: {po.reference_order_number}"
+
+    fg_wh = Warehouse.objects.filter(code="DEP-MM").first()
+    if not fg_wh:
+        return "Mamul deposu (DEP-MM) bulunamadı."
+
+    line = order.lines.filter(product=po.product).first()
+    if not line:
+        return "Siparişte üretilen ürün için kalem bulunamadı."
+
+    remaining = line.quantity - (line.shipped_quantity or Decimal("0"))
+    if remaining <= 0:
+        return "Kalem için sevkiyat edilecek kalmamış."
+
+    with transaction.atomic():
+        stock, _ = Stock.objects.select_for_update().get_or_create(
+            product=po.product,
+            warehouse=fg_wh,
+            defaults={"quantity": Decimal("0"), "reserved_quantity": Decimal("0")},
+        )
+
+        if stock.available_quantity < remaining:
+            return f"Yeterli stok yok: {stock.available_quantity} / {remaining}"
+
+        stock.quantity -= remaining
+        stock.reserved_quantity -= min(remaining, stock.reserved_quantity)
+        stock.save(update_fields=["quantity", "reserved_quantity", "updated_at"])
+
+        StockMovement.objects.create(
+            product=po.product,
+            warehouse=fg_wh,
+            movement_type=StockMovement.MovementType.OUT,
+            quantity=remaining,
+            reference_type="SalesOrder",
+            reference_id=order.pk,
+            note=f"Üretim tamamlandı, otomatik sevkiyat: {order.order_number}",
+        )
+
+        shipment_no = f"SHP-{order.order_number}-{uuid.uuid4().hex[:4].upper()}"
+        Shipment.objects.create(
+            shipment_number=shipment_no,
+            sales_order=order,
+            sales_order_line=line,
+            warehouse=fg_wh,
+            quantity=remaining,
+            status=Shipment.Status.SHIPPED,
+            shipped_at=timezone.now(),
+            note=f"Üretim emri {po.order_number} sonrası otomatik sevkiyat",
+        )
+
+        line.shipped_quantity = (line.shipped_quantity or Decimal("0")) + remaining
+        line.save(update_fields=["shipped_quantity"])
+
+        all_shipped = all(
+            (l.shipped_quantity or Decimal("0")) >= l.quantity
+            for l in order.lines.all()
+        )
+        if all_shipped:
+            order.status = SalesOrder.Status.SHIPPED
+        else:
+            order.status = SalesOrder.Status.PARTIALLY_SHIPPED
+        order.save(update_fields=["status", "updated_at"])
+
+    if order.status == SalesOrder.Status.SHIPPED:
+        notify_sales_order_confirmed.delay(order.pk)
+
+    return f"Sipariş {order.order_number} kalem sevkiyat edildi. Durum: {order.status}"

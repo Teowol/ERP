@@ -92,6 +92,16 @@ class SalesOrder(models.Model):
     def __str__(self):
         return f"{self.order_number} - {self.customer}"
 
+    def save(self, *args, **kwargs):
+        """Sipariş numarasını otomatik üret."""
+        if not self.order_number:
+            now_str = timezone.now().strftime("%Y%m%d")
+            unique_suffix = uuid.uuid4().hex[:6].upper()
+            cust_code = self.customer.code if self.customer else "GEN"
+            self.order_number = f"SO-{now_str}-{cust_code}-{unique_suffix}"
+        super().save(*args, **kwargs)
+
+
 
 class SalesOrderLine(models.Model):
     """Sipariş kalemleri."""
@@ -139,12 +149,7 @@ class SalesOrderLine(models.Model):
     )
 
     def save(self, *args, **kwargs):
-        if not self.order_number:
-            now_str = timezone.now().strftime("%Y%m%d")
-            # Rastgele 4 karakter veya sayaç bazlı benzersiz kod
-            unique_suffix = uuid.uuid4().hex[:6].upper()
-            cust_code = self.customer.code if self.customer else "GEN"
-            self.order_number = f"SO-{now_str}-{cust_code}-{unique_suffix}"
+        self.line_total = (self.quantity or Decimal("0")) * (self.unit_price or Decimal("0"))
         super().save(*args, **kwargs)
         
     def __str__(self):
@@ -217,6 +222,12 @@ class Invoice(models.Model):
     notes = models.TextField(
         blank=True,
         verbose_name="Notlar",
+    )
+    emailed_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        verbose_name="Fatura E-posta Gönderim Tarihi",
+        help_text="Fatura müşteriye e-posta ile gönderildiğinde doldurulur.",
     )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

@@ -492,6 +492,14 @@ class ProductionOrder(models.Model):
             self.produced_quantity,
         )
 
+        if self.reference_order_number:
+            from distribution.tasks import ship_fulfilled_production_task
+            po_pk = self.pk
+            user_id = user.pk if user else None
+            transaction.on_commit(
+                lambda: ship_fulfilled_production_task.delay(po_pk, user_id)
+            )
+
     def _update_stock(self, product, warehouse, quantity_delta):
         Stock = apps.get_model("inventory", "Stock")
         stock, _ = Stock.objects.get_or_create(
