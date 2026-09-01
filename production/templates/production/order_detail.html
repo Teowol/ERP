@@ -127,6 +127,27 @@
             </div>
         </div>
 
+        {% if cost_summary %}
+        <div class="card">
+            <h3 class="card-title">Maliyet Özeti</h3>
+            <div class="info-grid">
+                <div class="info-item"><span class="info-label">Hammadde Maliyeti</span><span class="info-value">{{ cost_summary.raw_material_cost }} TL</span></div>
+                <div class="info-item"><span class="info-label">İşçilik Maliyeti</span><span class="info-value">{{ cost_summary.labor_cost }} TL</span></div>
+                <div class="info-item"><span class="info-label">Makine / Operasyon</span><span class="info-value">{{ cost_summary.machine_cost }} TL</span></div>
+                <div class="info-item"><span class="info-label">Genel Üretim Gideri</span><span class="info-value">{{ cost_summary.overhead_cost }} TL</span></div>
+                <div class="info-item"><span class="info-label">Fire Maliyeti</span><span class="info-value">{{ cost_summary.scrap_cost }} TL</span></div>
+                <div class="info-item"><span class="info-label">Toplam Maliyet</span><span class="info-value">{{ cost_summary.total_cost }} TL</span></div>
+                <div class="info-item"><span class="info-label">Sağlam Üretim Miktarı</span><span class="info-value">{{ cost_summary.produced_quantity }} {{ order.product.unit }}</span></div>
+                <div class="info-item"><span class="info-label">Birim Maliyet</span><span class="info-value">{{ cost_summary.unit_cost }} TL / {{ order.product.unit }}</span></div>
+                <div class="info-item"><span class="info-label">Lot</span><span class="info-value">{{ cost_summary.lot|default:"-" }}</span></div>
+                <div class="info-item"><span class="info-label">Hesaplama Tarihi</span><span class="info-value">{{ cost_summary.calculation_date|date:"d.m.Y H:i" }}</span></div>
+            </div>
+            {% if cost_summary.calculation_note %}
+            <p style="margin-top:0.75rem; color:#666;">Not: {{ cost_summary.calculation_note }}</p>
+            {% endif %}
+        </div>
+        {% endif %}
+
         <div class="card">
             <h3 class="card-title">Hammadde ve Malzeme İhtiyaçları (BOM)</h3>
             {% if components %}

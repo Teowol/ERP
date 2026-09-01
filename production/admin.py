@@ -3,6 +3,7 @@ from django.contrib import admin, messages
 from production.models import (
     BOMItem,
     BillOfMaterial,
+    ProductionCost,
     ProductionLine,
     ProductionOrder,
     ProductionOrderComponent,
@@ -159,6 +160,48 @@ class BOMItemAdmin(admin.ModelAdmin):
         "bill_of_material__product__code",
         "component__code",
         "component__name",
+    ]
+
+
+@admin.register(ProductionCost)
+class ProductionCostAdmin(admin.ModelAdmin):
+    list_display = [
+        "production_order",
+        "product",
+        "lot",
+        "total_cost",
+        "unit_cost",
+        "raw_material_cost",
+        "scrap_cost",
+        "calculation_date",
+    ]
+    list_filter = ["product", "lot", "calculation_date"]
+    search_fields = [
+        "production_order__order_number",
+        "product__code",
+        "product__name",
+        "lot__lot_number",
+    ]
+    readonly_fields = [
+        "production_order",
+        "product",
+        "lot",
+        "raw_material_cost",
+        "labor_cost",
+        "machine_cost",
+        "overhead_cost",
+        "scrap_cost",
+        "total_cost",
+        "produced_quantity",
+        "scrap_quantity",
+        "unit_cost",
+        "calculation_date",
+        "creation_source",
+        "calculation_version",
+        "calculation_note",
+        "created_by",
+        "created_at",
+        "updated_at",
     ]
 
 

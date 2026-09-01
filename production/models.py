@@ -515,6 +515,21 @@ class ProductionOrder(models.Model):
                 lambda: ship_fulfilled_production_task.delay(po_pk, user_id)
             )
 
+        lot = Lot.objects.filter(
+            reference_type="production_order",
+            reference_id=self.pk,
+        ).order_by("-created_at").first()
+        ProductionCost.calculate_for_order(
+            self,
+            user=user,
+            lot=lot,
+            raw_material_cost_override=Decimal("0"),
+            labor_cost_override=Decimal("0"),
+            machine_cost_override=Decimal("0"),
+            overhead_cost_override=Decimal("0"),
+            scrap_quantity_override=self.scrapped_quantity,
+        )
+
     def _update_stock(self, product, warehouse, quantity_delta):
         Stock = apps.get_model("inventory", "Stock")
         stock, _ = Stock.objects.get_or_create(
@@ -563,6 +578,294 @@ class ProductionOrder(models.Model):
 
     def __str__(self):
         return f"{self.order_number} - {self.product.name} ({self.planned_quantity} Adet)"
+
+
+class ProductionCost(models.Model):
+    """Üretim emri bazlı maliyet takibi."""
+
+    production_order = models.OneToOneField(
+        ProductionOrder,
+        on_delete=models.CASCADE,
+        related_name="production_cost",
+        verbose_name="Üretim Emri",
+    )
+    product = models.ForeignKey(
+        Product,
+        on_delete=models.PROTECT,
+        related_name="production_costs",
+        verbose_name="Ürün",
+    )
+    lot = models.ForeignKey(
+        "inventory.Lot",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="production_costs",
+        verbose_name="Lot",
+    )
+    raw_material_cost = models.DecimalField(
+        max_digits=14,
+        decimal_places=3,
+        default=Decimal("0"),
+        validators=[MinValueValidator(Decimal("0"))],
+        verbose_name="Hammadde Maliyeti",
+    )
+    labor_cost = models.DecimalField(
+        max_digits=14,
+        decimal_places=3,
+        default=Decimal("0"),
+        validators=[MinValueValidator(Decimal("0"))],
+        verbose_name="İşçilik Maliyeti",
+    )
+    machine_cost = models.DecimalField(
+        max_digits=14,
+        decimal_places=3,
+        default=Decimal("0"),
+        validators=[MinValueValidator(Decimal("0"))],
+        verbose_name="Makine / Operasyon Maliyeti",
+    )
+    overhead_cost = models.DecimalField(
+        max_digits=14,
+        decimal_places=3,
+        default=Decimal("0"),
+        validators=[MinValueValidator(Decimal("0"))],
+        verbose_name="Genel Üretim Gideri",
+    )
+    scrap_cost = models.DecimalField(
+        max_digits=14,
+        decimal_places=3,
+        default=Decimal("0"),
+        validators=[MinValueValidator(Decimal("0"))],
+        verbose_name="Fire Maliyeti",
+    )
+    total_cost = models.DecimalField(
+        max_digits=14,
+        decimal_places=3,
+        default=Decimal("0"),
+        validators=[MinValueValidator(Decimal("0"))],
+        verbose_name="Toplam Maliyet",
+    )
+    produced_quantity = models.DecimalField(
+        max_digits=14,
+        decimal_places=3,
+        default=Decimal("0"),
+        validators=[MinValueValidator(Decimal("0"))],
+        verbose_name="Sağlam Üretim Miktarı",
+    )
+    scrap_quantity = models.DecimalField(
+        max_digits=14,
+        decimal_places=3,
+        default=Decimal("0"),
+        validators=[MinValueValidator(Decimal("0"))],
+        verbose_name="Fire Miktarı",
+    )
+    unit_cost = models.DecimalField(
+        max_digits=14,
+        decimal_places=3,
+        default=Decimal("0"),
+        validators=[MinValueValidator(Decimal("0"))],
+        verbose_name="Birim Maliyet",
+    )
+    calculation_date = models.DateTimeField(default=timezone.now, verbose_name="Hesaplama Tarihi")
+    creation_source = models.CharField(
+        max_length=40,
+        default="manual",
+        choices=[("manual", "Manuel"), ("auto", "Otomatik")],
+        verbose_name="Hesaplama Kaynağı",
+    )
+    calculation_version = models.PositiveIntegerField(default=1, verbose_name="Hesaplama Versiyonu")
+    calculation_note = models.TextField(blank=True, verbose_name="Hesaplama Notu")
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        related_name="created_costs",
+        null=True,
+        blank=True,
+        verbose_name="Oluşturan / Güncelleyen",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-calculation_date", "-pk"]
+        verbose_name = "Üretim Maliyeti"
+        verbose_name_plural = "Üretim Maliyetleri"
+
+    def clean(self):
+        for field_name in [
+            "raw_material_cost",
+            "labor_cost",
+            "machine_cost",
+            "overhead_cost",
+            "scrap_cost",
+            "total_cost",
+            "produced_quantity",
+            "scrap_quantity",
+            "unit_cost",
+        ]:
+            value = getattr(self, field_name)
+            if value < Decimal("0"):
+                raise ValueError(f"{field_name} negatif olamaz.")
+        if self.scrap_quantity > self.produced_quantity and self.produced_quantity > Decimal("0"):
+            raise ValueError("Fire miktarı, sağlam üretim miktarını aşamaz.")
+
+    def save(self, *args, **kwargs):
+        self.clean()
+        super().save(*args, **kwargs)
+
+    @classmethod
+    @transaction.atomic
+    def calculate_for_order(
+        cls,
+        production_order,
+        user=None,
+        lot=None,
+        raw_material_cost_override=None,
+        labor_cost_override=None,
+        machine_cost_override=None,
+        overhead_cost_override=None,
+        scrap_quantity_override=None,
+        force=False,
+    ):
+        if production_order is None:
+            raise ValueError("Maliyet hesaplaması için üretim emri gerekli.")
+
+        raw_material_cost = (
+            Decimal(str(raw_material_cost_override))
+            if raw_material_cost_override is not None
+            else Decimal("0")
+        )
+        labor_cost = (
+            Decimal(str(labor_cost_override))
+            if labor_cost_override is not None
+            else Decimal("0")
+        )
+        machine_cost = (
+            Decimal(str(machine_cost_override))
+            if machine_cost_override is not None
+            else Decimal("0")
+        )
+        overhead_cost = (
+            Decimal(str(overhead_cost_override))
+            if overhead_cost_override is not None
+            else Decimal("0")
+        )
+
+        produced_quantity = production_order.produced_quantity if production_order.produced_quantity > Decimal("0") else Decimal("0")
+        scrap_quantity = (
+            Decimal(str(scrap_quantity_override))
+            if scrap_quantity_override is not None
+            else production_order.scrapped_quantity
+        )
+        if scrap_quantity < Decimal("0"):
+            raise ValueError("Fire miktarı negatif olamaz.")
+
+        if produced_quantity == Decimal("0") and production_order.planned_quantity > Decimal("0"):
+            unit_basis = production_order.planned_quantity
+        else:
+            unit_basis = produced_quantity
+
+        base_total = raw_material_cost + labor_cost + machine_cost + overhead_cost
+
+        if scrap_quantity > Decimal("0"):
+            if unit_basis > Decimal("0"):
+                scrap_cost = (base_total / unit_basis) * scrap_quantity
+            else:
+                scrap_cost = Decimal("0")
+        else:
+            scrap_cost = Decimal("0")
+
+        total_cost = base_total + scrap_cost
+        if produced_quantity > Decimal("0"):
+            unit_cost = total_cost / produced_quantity
+        else:
+            unit_cost = Decimal("0")
+
+        note_parts = []
+        if raw_material_cost == Decimal("0"):
+            note_parts.append(
+                "Hammadde birim maliyeti sistemde tutulmadığı için hesaplama güvenli varsayılan olarak 0 alındı. "
+                "Gerçek maliyetleri manuel girmek gerekir."
+            )
+        if scrap_quantity > Decimal("0"):
+            note_parts.append(
+                f"Fire maliyeti {scrap_quantity} adet üzerinden hesaplandı."
+            )
+        if produced_quantity == Decimal("0"):
+            note_parts.append(
+                "Sağlam üretim miktarı sıfır olduğu için birim maliyet 0 olarak bırakıldı."
+            )
+
+        cost_record, created = cls.objects.select_for_update().get_or_create(
+            production_order=production_order,
+            defaults={
+                "product": production_order.product,
+                "lot": lot,
+                "raw_material_cost": raw_material_cost,
+                "labor_cost": labor_cost,
+                "machine_cost": machine_cost,
+                "overhead_cost": overhead_cost,
+                "scrap_cost": scrap_cost,
+                "total_cost": total_cost,
+                "produced_quantity": produced_quantity,
+                "scrap_quantity": scrap_quantity,
+                "unit_cost": unit_cost,
+                "calculation_date": timezone.now(),
+                "created_by": user,
+                "creation_source": "auto" if user is None else "manual",
+                "calculation_note": "; ".join(note_parts),
+            },
+        )
+
+        if not created:
+            if force:
+                cost_record.calculation_version += 1
+            cost_record.product = production_order.product
+            cost_record.lot = lot or cost_record.lot
+            cost_record.raw_material_cost = raw_material_cost
+            cost_record.labor_cost = labor_cost
+            cost_record.machine_cost = machine_cost
+            cost_record.overhead_cost = overhead_cost
+            cost_record.scrap_cost = scrap_cost
+            cost_record.total_cost = total_cost
+            cost_record.produced_quantity = produced_quantity
+            cost_record.scrap_quantity = scrap_quantity
+            cost_record.unit_cost = unit_cost
+            cost_record.calculation_date = timezone.now()
+            cost_record.created_by = user or cost_record.created_by
+            cost_record.creation_source = "auto" if user is None else "manual"
+            patch_note = "; ".join(note_parts) if note_parts else cost_record.calculation_note
+            if patch_note:
+                cost_record.calculation_note = patch_note
+            cost_record.save(update_fields=[
+                "product",
+                "lot",
+                "raw_material_cost",
+                "labor_cost",
+                "machine_cost",
+                "overhead_cost",
+                "scrap_cost",
+                "total_cost",
+                "produced_quantity",
+                "scrap_quantity",
+                "unit_cost",
+                "calculation_date",
+                "created_by",
+                "creation_source",
+                "calculation_note",
+                "updated_at",
+            ])
+            if force:
+                cost_record.save(update_fields=["calculation_version", "updated_at"])
+            return cost_record
+
+        if created:
+            cost_record.calculation_version = 1
+            cost_record.save(update_fields=["calculation_version", "updated_at"])
+        return cost_record
+
+    def __str__(self):
+        return f"{self.production_order.order_number} - Toplam {self.total_cost}"
 
 
 class ProductionOrderOperation(models.Model):

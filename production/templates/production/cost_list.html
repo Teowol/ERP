@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Maliyet Takibi</title>
+    <link rel="stylesheet" href="/static/css/erp-theme.css?v=2">
+</head>
+<body>
+    <div class="header">
+        <h1>Sneaker ERP - Maliyet Takibi</h1>
+        <div>
+            <a href="{% url 'portal' %}">Portal</a>
+            <a href="{% url 'production:order_list' %}">Üretim Emirleri</a>
+            <a href="{% url 'inventory:stock_level_list' %}">Stok</a>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="top-bar">
+            <h2>Maliyet Raporu</h2>
+        </div>
+
+        <div class="card">
+            <form method="get" class="filter-bar">
+                <input type="text" name="order" value="{{ current_order }}" placeholder="Üretim emri / ürün ara" style="padding:0.65rem 0.8rem; border:1px solid var(--border); border-radius:8px; min-width:240px;">
+                <button type="submit" class="btn btn-start">Filtrele</button>
+            </form>
+        </div>
+
+        <div class="card">
+            {% if costs %}
+            <table>
+                <thead>
+                    <tr>
+                        <th>Üretim Emri</th>
+                        <th>Ürün</th>
+                        <th>Lot</th>
+                        <th>Hammadde</th>
+                        <th>İşçilik</th>
+                        <th>Makine</th>
+                        <th>Genel Gider</th>
+                        <th>Fire</th>
+                        <th>Toplam</th>
+                        <th>Birim</th>
+                        <th>Hesaplama</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for cost in costs %}
+                    <tr>
+                        <td><a href="{% url 'production:order_detail' cost.production_order_id %}">{{ cost.production_order.order_number }}</a></td>
+                        <td>{{ cost.product.name }}</td>
+                        <td>{{ cost.lot|default:"-" }}</td>
+                        <td>{{ cost.raw_material_cost }} TL</td>
+                        <td>{{ cost.labor_cost }} TL</td>
+                        <td>{{ cost.machine_cost }} TL</td>
+                        <td>{{ cost.overhead_cost }} TL</td>
+                        <td>{{ cost.scrap_cost }} TL</td>
+                        <td><strong>{{ cost.total_cost }} TL</strong></td>
+                        <td>{{ cost.unit_cost }} TL</td>
+                        <td>{{ cost.calculation_date|date:"d.m.Y H:i" }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <div class="empty-state">
+                <p>Henüz üretim maliyeti kaydı bulunmuyor.</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</body>
+</html>

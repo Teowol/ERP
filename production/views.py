@@ -9,6 +9,7 @@ from django.views.decorators.http import require_POST
 from inventory.models import Product, Stock, Warehouse
 from production.models import (
     BillOfMaterial,
+    ProductionCost,
     ProductionLine,
     ProductionOrder,
     ProductionOrderOperation,
@@ -83,9 +84,34 @@ def order_detail(request, pk):
         "order": order,
         "components": components,
         "operations": operations,
+        "cost_summary": getattr(order, "production_cost", None),
         "available_actions": _get_available_actions(order),
     }
     return render(request, "production/order_detail.html", context)
+
+
+def cost_list(request):
+    """Üretim maliyetlerinin özet listesi."""
+    queryset = ProductionCost.objects.select_related(
+        "production_order",
+        "production_order__product",
+        "product",
+        "lot",
+    ).all()
+
+    order_filter = request.GET.get("order", "").strip()
+    if order_filter:
+        queryset = queryset.filter(
+            Q(production_order__order_number__icontains=order_filter)
+            | Q(product__name__icontains=order_filter)
+            | Q(product__code__icontains=order_filter)
+        )
+
+    context = {
+        "costs": queryset.order_by("-calculation_date", "-pk"),
+        "current_order": order_filter,
+    }
+    return render(request, "production/cost_list.html", context)
 
 
 @require_POST
