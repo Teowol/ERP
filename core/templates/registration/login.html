@@ -51,6 +51,22 @@
             background: rgba(255, 255, 255, 0.06);
         }
         input:focus { border-color: var(--gold); }
+        .show-password {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            margin: 10px 0 0;
+            color: var(--muted);
+            font-size: 13px;
+            font-weight: 400;
+            cursor: pointer;
+        }
+        .show-password input {
+            width: auto;
+            margin: 0;
+            accent-color: var(--gold);
+            cursor: pointer;
+        }
         button {
             width: 100%;
             margin-top: 24px;
@@ -85,6 +101,10 @@
             {{ form.username }}
             <label for="id_password">Şifre</label>
             {{ form.password }}
+            <label class="show-password" for="show-password">
+                <input type="checkbox" id="show-password" aria-controls="id_password">
+                Şifremi göster
+            </label>
             <button type="submit">Giriş Yap</button>
         </form>
         <p class="bottom-link">
@@ -94,5 +114,10 @@
             Fabrika / firma yetkilisi girişi mevcut kullanıcı adı ve şifrenizle yapılır.
         </p>
     </main>
+    <script>
+        document.getElementById("show-password").addEventListener("change", function () {
+            document.getElementById("id_password").type = this.checked ? "text" : "password";
+        });
+    </script>
 </body>
 </html>
