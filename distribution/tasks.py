@@ -5,7 +5,7 @@ import os
 from celery import shared_task
 from django.conf import settings
 from django.core.mail import send_mail
-from django.db.models import Sum
+from django.db.models import Subquery, Sum
 from django.utils import timezone
 
 from .models import Invoice, SalesOrder
@@ -120,15 +120,15 @@ def _allocate_fifo_lots(product, warehouse, quantity):
     remaining = quantity
     allocations = []
 
+    lot_ids = StockMovement.objects.filter(
+        warehouse=warehouse, lot__isnull=False
+    ).values("lot_id")
     lots = (
-        Lot.objects
-        .select_for_update()
+        Lot.objects.select_for_update()
         .filter(
-            product=product,
-            status=Lot.Status.ACTIVE,
-            stock_movements__warehouse=warehouse,
+            product=product, status=Lot.Status.ACTIVE,
+            pk__in=Subquery(lot_ids),
         )
-        .distinct()
         .order_by("created_at", "pk")
     )
 
@@ -228,15 +228,15 @@ def process_order_fulfillment_task(order_pk, user_id=None):
                 stock.quantity -= line.quantity
                 stock.save(update_fields=["quantity", "updated_at"])
 
-                StockMovement.objects.create(
-                    product=line.product,
-                    warehouse=fg_wh,
-                    movement_type=StockMovement.MovementType.OUT,
-                    quantity=line.quantity,
-                    reference_type="SalesOrder",
-                    reference_id=order.pk,
-                    note=f"Sipariş {order.order_number} sevkiyat çıkışı",
-                )
+                allocations = _allocate_fifo_lots(line.product, fg_wh, line.quantity)
+                for lot, allocated_quantity in allocations:
+                    StockMovement.objects.create(
+                        product=line.product, warehouse=fg_wh, lot=lot,
+                        movement_type=StockMovement.MovementType.OUT,
+                        quantity=allocated_quantity, reference_type="SalesOrder",
+                        reference_id=order.pk,
+                        note=f"Sipariş {order.order_number} FIFO sevkiyat çıkışı",
+                    )
 
                 # Kargo / Sevkiyat kaydı oluştur
                 shipment_no = f"SHP-{order.order_number}-{uuid.uuid4().hex[:4].upper()}"
@@ -366,15 +366,15 @@ def ship_fulfilled_production_task(production_order_pk, user_id=None):
         stock.reserved_quantity -= min(remaining, stock.reserved_quantity)
         stock.save(update_fields=["quantity", "reserved_quantity", "updated_at"])
 
-        StockMovement.objects.create(
-            product=po.product,
-            warehouse=fg_wh,
-            movement_type=StockMovement.MovementType.OUT,
-            quantity=remaining,
-            reference_type="SalesOrder",
-            reference_id=order.pk,
-            note=f"Üretim tamamlandı, otomatik sevkiyat: {order.order_number}",
-        )
+        allocations = _allocate_fifo_lots(po.product, fg_wh, remaining)
+        for lot, allocated_quantity in allocations:
+            StockMovement.objects.create(
+                product=po.product, warehouse=fg_wh, lot=lot,
+                movement_type=StockMovement.MovementType.OUT,
+                quantity=allocated_quantity, reference_type="SalesOrder",
+                reference_id=order.pk,
+                note=f"Üretim tamamlandı, FIFO sevkiyat: {order.order_number}",
+            )
 
         shipment_no = f"SHP-{order.order_number}-{uuid.uuid4().hex[:4].upper()}"
         Shipment.objects.create(

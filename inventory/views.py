@@ -26,6 +26,9 @@ def stock_level_list(request):
         queryset = queryset.filter(
             Q(product__code__icontains=product_filter)
             | Q(product__name__icontains=product_filter)
+            | Q(product__barcode__icontains=product_filter)
+            | Q(product__qr_code__icontains=product_filter)
+            | Q(product__variant_details__sku__icontains=product_filter)
         )
 
     if warehouse_filter:
@@ -55,7 +58,12 @@ def lot_tracking_list(request):
         queryset = queryset.filter(
             Q(product__code__icontains=product_filter)
             | Q(product__name__icontains=product_filter)
+            | Q(product__barcode__icontains=product_filter)
+            | Q(product__qr_code__icontains=product_filter)
+            | Q(product__variant_details__sku__icontains=product_filter)
             | Q(lot_number__icontains=product_filter)
+            | Q(barcode__icontains=product_filter)
+            | Q(qr_code__icontains=product_filter)
         )
 
     if status_filter:
@@ -139,6 +147,11 @@ def stock_movement_list(request):
         queryset = queryset.filter(
             Q(product__code__icontains=product_filter)
             | Q(product__name__icontains=product_filter)
+            | Q(product__barcode__icontains=product_filter)
+            | Q(product__qr_code__icontains=product_filter)
+            | Q(product__variant_details__sku__icontains=product_filter)
+            | Q(lot__barcode__icontains=product_filter)
+            | Q(lot__qr_code__icontains=product_filter)
         )
 
     if warehouse_filter:

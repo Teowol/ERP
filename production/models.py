@@ -532,7 +532,7 @@ class ProductionOrder(models.Model):
 
     def _update_stock(self, product, warehouse, quantity_delta):
         Stock = apps.get_model("inventory", "Stock")
-        stock, _ = Stock.objects.get_or_create(
+        stock, _ = Stock.objects.select_for_update().get_or_create(
             product=product,
             warehouse=warehouse,
             defaults={

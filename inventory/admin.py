@@ -4,6 +4,7 @@ from django.contrib import admin
 
 from django.contrib import admin
 
+from inventory.barcodes import admin_code_preview
 from inventory.models import (
     Lot,
     Product,
@@ -25,6 +26,8 @@ class ProductAdmin(admin.ModelAdmin):
     list_display = [
         "code",
         "name",
+        "barcode",
+        "qr_code",
         "product_type",
         "category",
         "unit",
@@ -32,7 +35,12 @@ class ProductAdmin(admin.ModelAdmin):
         "is_active",
     ]
     list_filter = ["product_type", "category", "is_active"]
-    search_fields = ["code", "name"]
+    search_fields = ["code", "name", "barcode", "qr_code"]
+    readonly_fields = ["barcode_preview"]
+
+    @admin.display(description="Barkod / QR Önizleme")
+    def barcode_preview(self, obj):
+        return admin_code_preview(obj)
 
 
 @admin.register(Warehouse)
@@ -52,13 +60,15 @@ class StockAdmin(admin.ModelAdmin):
         "updated_at",
     ]
     list_filter = ["warehouse"]
-    search_fields = ["product__code", "product__name"]
+    search_fields = ["product__code", "product__name", "product__barcode", "product__qr_code", "product__variant_details__sku"]
 
 
 @admin.register(Lot)
 class LotAdmin(admin.ModelAdmin):
     list_display = [
         "lot_number",
+        "barcode",
+        "qr_code",
         "product",
         "status",
         "initial_quantity",
@@ -68,8 +78,12 @@ class LotAdmin(admin.ModelAdmin):
         "created_at",
     ]
     list_filter = ["status", "product"]
-    search_fields = ["lot_number", "product__code", "product__name"]
-    readonly_fields = ["created_at", "updated_at"]
+    search_fields = ["lot_number", "barcode", "qr_code", "product__code", "product__name"]
+    readonly_fields = ["created_at", "updated_at"] + ["barcode_preview"]
+
+    @admin.display(description="Barkod / QR Önizleme")
+    def barcode_preview(self, obj):
+        return admin_code_preview(obj)
 
 
 @admin.register(StockMovement)
@@ -85,4 +99,4 @@ class StockMovementAdmin(admin.ModelAdmin):
         "created_at",
     ]
     list_filter = ["movement_type", "warehouse"]
-    search_fields = ["product__code", "product__name", "lot__lot_number"]
+    search_fields = ["product__code", "product__name", "product__barcode", "product__qr_code", "product__variant_details__sku", "lot__lot_number", "lot__barcode", "lot__qr_code", "scan_reference"]
