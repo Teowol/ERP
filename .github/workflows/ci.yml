@@ -50,6 +50,9 @@ jobs:
       EMAIL_HOST_PASSWORD: ""
       SENTRY_DISABLED: "true"
       OPENAI_API_KEY: ""
+      DJANGO_SECRET_KEY: ci-only-not-for-production
+      DJANGO_DEBUG: "false"
+      DJANGO_ALLOWED_HOSTS: localhost,127.0.0.1
 
     steps:
       - name: Kodu al
@@ -62,7 +65,16 @@ jobs:
           cache: pip
 
       - name: Bağımlılıkları yükle
-        run: pip install -r requirements.txt
+        run: pip install -r requirements-dev.txt
+
+      - name: Kritik statik analiz
+        run: ruff check .
+
+      - name: Güvenlik analizi
+        run: bandit -q -c .bandit.yaml -r .
+
+      - name: Bağımlılık güvenlik analizi
+        run: pip-audit -r requirements.txt
 
       - name: Django denetimi
         run: python manage.py check
@@ -71,4 +83,7 @@ jobs:
         run: python manage.py makemigrations --check --dry-run
 
       - name: Testler
-        run: python manage.py test
+        run: coverage run manage.py test
+
+      - name: Kapsama raporu
+        run: coverage report

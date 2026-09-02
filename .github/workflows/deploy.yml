@@ -1,0 +1,64 @@
+name: Production deployment
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "Deploy edilecek Git ref'i"
+        required: true
+        default: main
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production-deployment
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: Kodu al
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref }}
+
+      - name: SSH anahtarını hazırla
+        env:
+          DEPLOY_SSH_PRIVATE_KEY: ${{ secrets.DEPLOY_SSH_PRIVATE_KEY }}
+          DEPLOY_SSH_KNOWN_HOSTS: ${{ secrets.DEPLOY_SSH_KNOWN_HOSTS }}
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s' "$DEPLOY_SSH_PRIVATE_KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          printf '%s\n' "$DEPLOY_SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
+
+      - name: Kaynak kodunu sunucuya eşitle
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
+        run: |
+          ssh "$DEPLOY_USER@$DEPLOY_HOST" "mkdir -p '$DEPLOY_PATH'"
+          rsync -az --delete \
+            --exclude '.env' --exclude 'media/' --exclude 'staticfiles/' \
+            --exclude '.git/' --exclude '.venv/' --exclude 'venv/' \
+            ./ "$DEPLOY_USER@$DEPLOY_HOST:$DEPLOY_PATH/"
+
+      - name: Migration, yeniden başlatma ve sağlık kontrolü
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
+          SENTRY_RELEASE: ${{ github.sha }}
+        run: |
+          ssh "$DEPLOY_USER@$DEPLOY_HOST" "cd '$DEPLOY_PATH' && \
+            export SENTRY_RELEASE='$SENTRY_RELEASE' && \
+            docker compose build && \
+            docker compose run --rm web python manage.py migrate --noinput && \
+            docker compose run --rm web python manage.py collectstatic --noinput && \
+            docker compose up -d --remove-orphans && \
+            docker compose exec -T web python -c \"from urllib.request import urlopen; urlopen('http://127.0.0.1:8000/healthz/', timeout=10)\""

@@ -6,11 +6,17 @@ from django.contrib.auth import get_user_model
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied
 from django.db import transaction
+from django.http import JsonResponse
 from django.shortcuts import redirect, render
 
 from distribution.models import Customer
 
 User = get_user_model()
+
+
+def healthz(request):
+    """Load balancer and deployment health-check endpoint."""
+    return JsonResponse({"status": "ok"})
 
 
 def is_buyer(user):

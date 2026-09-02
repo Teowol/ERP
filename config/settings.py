@@ -16,6 +16,7 @@ from pathlib import Path
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 import sentry_sdk
+from django.core.exceptions import ImproperlyConfigured
 from sentry_sdk.integrations.celery import CeleryIntegration
 from sentry_sdk.integrations.django import DjangoIntegration
 
@@ -27,23 +28,8 @@ environ.Env.read_env(BASE_DIR / '.env')
 OPENAI_API_KEY = env("OPENAI_API_KEY", default="")
 OPENAI_MODEL = env("OPENAI_MODEL", default="gpt-4o-mini")
 
-import os
-import subprocess
-
-# Sentry release bilgisi: son git commit hash'i
-SENTRY_RELEASE = "unknown"
-try:
-    SENTRY_RELEASE = (
-        subprocess.check_output(
-            ["git", "rev-parse", "--short", "HEAD"],
-            cwd=BASE_DIR,
-            stderr=subprocess.DEVNULL,
-        )
-        .decode("utf-8")
-        .strip()
-    )
-except Exception:
-    pass
+# Deployment workflow supplies this value from the immutable Git commit.
+SENTRY_RELEASE = env("SENTRY_RELEASE", default="unknown")
 
 sentry_sdk.init(
     dsn=env("SENTRY_DSN", default=""),
@@ -62,24 +48,25 @@ sentry_sdk.init(
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/6.1/howto/deployment/checklist/
 
-# SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-&2&z)z4t(#qff+lks4+x7o&lc0=#8g3k84ff(%8k3fvyr$ka=w'
+DEBUG = env.bool("DJANGO_DEBUG", default=False)
+SECRET_KEY = env("DJANGO_SECRET_KEY", default="")
+if not SECRET_KEY:
+    raise ImproperlyConfigured("DJANGO_SECRET_KEY ortam değişkeni zorunludur.")
 
-# SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
-
-ALLOWED_HOSTS = [
-    '185.22.185.98',
-    'localhost',
-    '127.0.0.1',
-]
+ALLOWED_HOSTS = env.list("DJANGO_ALLOWED_HOSTS", default=["localhost", "127.0.0.1"])
 
 # NGINX reverse proxy arkasında CSRF ve host doğrulaması
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
-CSRF_TRUSTED_ORIGINS = [
-    "http://185.22.185.98",
-    "https://185.22.185.98",
-]
+CSRF_TRUSTED_ORIGINS = env.list("DJANGO_CSRF_TRUSTED_ORIGINS", default=[])
+SECURE_SSL_REDIRECT = env.bool("DJANGO_SECURE_SSL_REDIRECT", default=not DEBUG)
+SESSION_COOKIE_SECURE = not DEBUG
+CSRF_COOKIE_SECURE = not DEBUG
+SECURE_CONTENT_TYPE_NOSNIFF = True
+SECURE_REFERRER_POLICY = "same-origin"
+X_FRAME_OPTIONS = "DENY"
+SECURE_HSTS_SECONDS = env.int("DJANGO_SECURE_HSTS_SECONDS", default=0)
+SECURE_HSTS_INCLUDE_SUBDOMAINS = SECURE_HSTS_SECONDS > 0
+SECURE_HSTS_PRELOAD = False
 
 
 # Application definition
@@ -213,7 +200,7 @@ EMAIL_HOST_USER = env("EMAIL_HOST_USER")
 EMAIL_HOST_PASSWORD = env("EMAIL_HOST_PASSWORD")
 DEFAULT_FROM_EMAIL = env("DEFAULT_FROM_EMAIL", default="noreply@speeders.com.tr")
 
-ERP_NOTIFICATION_EMAIL = "teomanunal06@gmail.com"
+ERP_NOTIFICATION_EMAIL = env("ERP_NOTIFICATION_EMAIL", default="teomanunal06@gmail.com")
 
 # Celery Configuration
 # https://docs.celeryq.dev/en/stable/userguide/configuration.html

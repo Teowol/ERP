@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Kalite Kontrol Kayıtları</title><link rel="stylesheet" href="{% static 'css/erp-theme.css' %}?v=3">
+    <title>Kalite Kontrol Kayıtları</title><link rel="stylesheet" href="{% static 'css/erp-theme.css' %}?v=4">
 </head>
 <body>
     <div class="header">
@@ -13,7 +13,7 @@
             <a href="{% url 'production:order_list' %}">Emir Listesi</a>
             <a href="{% url 'production:operation_list' %}">Operasyonlar</a>
             <a href="{% url 'inventory:stock_level_list' %}">Stok</a>
-            <a href="/admin/">Django Admin</a>
+            <a href="{% url 'portal' %}" class="portal-link">← Portal</a>
         </div>
     </div>
 

@@ -138,7 +138,7 @@
 <body>
     <header>
         <a class="brand" href="{% url 'home' %}">SPEEDERS</a>
-        <a href="{% url 'catalog:product_list' %}">Katalog</a>
+        <div style="display: flex; gap: 12px; align-items: center;"><a href="{% url 'catalog:product_list' %}">Katalog</a><a href="{% url 'portal' %}" style="padding: 8px 12px; border: 1px solid rgba(224, 193, 141, .42); border-radius: 8px;">← Portal</a></div>
     </header>
 
     <main class="page">

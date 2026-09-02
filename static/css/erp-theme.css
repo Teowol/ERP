@@ -676,3 +676,25 @@ table th, table td { border-color: var(--erp-border) !important; }
 }
 .btn-cancel, .btn-danger { background: #8f2932 !important; color: #fff !important; }
 .page-title, .filter-card h2, .table-card h2, .table-card h3 { color: var(--erp-navy) !important; }
+
+/* Panellerde ana portala dönüş */
+.header .portal-link {
+    display: inline-flex;
+    align-items: center;
+    margin-left: 10px !important;
+    padding: 8px 12px !important;
+    border: 1px solid rgba(224, 193, 141, .42);
+    border-radius: 8px;
+    color: var(--erp-gold-soft) !important;
+    background: rgba(255, 255, 255, .03);
+    font-weight: 700;
+    line-height: 1;
+}
+.header .portal-link:hover,
+.header .portal-link:focus-visible {
+    color: var(--erp-navy) !important;
+    background: var(--erp-gold-soft);
+}
+.header.erp-navbar .erp-navbar__links .portal-link {
+    padding: 8px 12px !important;
+}

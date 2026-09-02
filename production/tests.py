@@ -2,6 +2,7 @@ from decimal import Decimal
 
 from django.contrib.auth import get_user_model
 from django.test import TestCase
+from django.urls import reverse
 
 from inventory.models import Product, ProductCategory, Stock, Warehouse
 from production.models import (
@@ -138,3 +139,17 @@ class ProductionCostCalculationTests(TestCase):
 
         self.assertTrue(hasattr(self.order, "production_cost"))
         self.assertEqual(self.order.production_cost.production_order, self.order)
+
+    def test_admin_does_not_allow_empty_manual_cost_creation(self):
+        self.user.is_staff = True
+        self.user.is_superuser = True
+        self.user.save(update_fields=["is_staff", "is_superuser"])
+        self.client.force_login(self.user)
+
+        response = self.client.post(
+            reverse("admin:production_productioncost_add"),
+            data={},
+        )
+
+        self.assertEqual(response.status_code, 403)
+        self.assertFalse(ProductionCost.objects.exists())

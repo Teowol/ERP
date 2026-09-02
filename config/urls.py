@@ -1,9 +1,10 @@
 from django.contrib import admin
 from django.urls import include, path
 from django.contrib.auth import views as auth_views
-from core.views import customer_home, home, portal, register
+from core.views import customer_home, healthz, home, portal, register
 
 urlpatterns = [
+    path("healthz/", healthz, name="healthz"),
     path("", home, name="home"),
     path("portal/", portal, name="portal"),
     path("musteri/", customer_home, name="customer_home"),

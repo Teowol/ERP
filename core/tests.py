@@ -1,3 +1,9 @@
 from django.test import TestCase
 
-# Create your tests here.
+
+class HealthCheckTests(TestCase):
+    def test_health_endpoint_returns_ok(self):
+        response = self.client.get("/healthz/")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertJSONEqual(response.content, {"status": "ok"})

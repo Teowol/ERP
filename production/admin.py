@@ -204,6 +204,10 @@ class ProductionCostAdmin(admin.ModelAdmin):
         "updated_at",
     ]
 
+    def has_add_permission(self, request):
+        """Maliyet kayıtları yalnızca üretim emri akışında oluşturulur."""
+        return False
+
 
 @admin.register(ProductionOrder)
 class ProductionOrderAdmin(admin.ModelAdmin):

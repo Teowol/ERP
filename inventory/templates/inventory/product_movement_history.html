@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{ product.name }} - Hareket Geçmişi</title><link rel="stylesheet" href="/static/css/erp-theme.css?v=2">
+    <title>{{ product.name }} - Hareket Geçmişi</title><link rel="stylesheet" href="/static/css/erp-theme.css?v=3">
 </head>
 <body>
     <div class="header">
@@ -11,7 +11,7 @@
         <div>
             <a href="{% url 'inventory:stock_level_list' %}">Stok Seviyeleri</a>
             <a href="{% url 'inventory:stock_movement_list' %}">Hareketler</a>
-            <a href="/admin/">Django Admin</a>
+            <a href="{% url 'portal' %}" class="portal-link">← Portal</a>
         </div>
     </div>
 
