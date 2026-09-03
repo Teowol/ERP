@@ -1,10 +1,11 @@
-{% load static %}
+{% load static i18n %}
+{% get_current_language as LANGUAGE_CODE %}
 <!DOCTYPE html>
-<html lang="tr">
+<html lang="{{ LANGUAGE_CODE }}">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SPEEDERS | Hoş Geldiniz</title>
+    <title>SPEEDERS | {% translate "Hoş Geldiniz" %}</title>
     <style>
         :root {
             --navy: #061a2d;
@@ -26,6 +27,64 @@
             background: radial-gradient(circle at top right, rgba(201, 165, 106, 0.12), transparent 30%), linear-gradient(135deg, #041321 0%, #071e33 52%, #061724 100%);
             font-family: Arial, Helvetica, sans-serif;
         }
+        .language-nav {
+            position: fixed;
+            top: 22px;
+            right: 28px;
+            z-index: 10;
+        }
+        .language-toggle {
+            position: relative;
+            width: 82px;
+            height: 38px;
+            padding: 0;
+            overflow: hidden;
+            border: 1px solid rgba(224, 193, 141, 0.62);
+            border-radius: 999px;
+            color: var(--gold-soft);
+            background: rgba(4, 19, 33, 0.86);
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.28);
+            cursor: pointer;
+            backdrop-filter: blur(10px);
+            transition: border-color 0.2s ease, box-shadow 0.2s ease;
+        }
+        .language-toggle:hover,
+        .language-toggle:focus-visible {
+            border-color: var(--gold-soft);
+            box-shadow: 0 8px 26px rgba(201, 165, 106, 0.2);
+            outline: none;
+        }
+        .language-toggle__labels {
+            position: absolute;
+            inset: 0;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            align-items: center;
+            font-size: 11px;
+            font-weight: 800;
+            letter-spacing: 0.5px;
+        }
+        .language-toggle__label {
+            position: relative;
+            z-index: 2;
+            transition: color 0.2s ease;
+        }
+        .language-toggle__label--tr { color: var(--navy); }
+        .language-toggle__label--en { color: var(--gold-soft); }
+        .language-toggle__knob {
+            position: absolute;
+            top: 3px;
+            left: 3px;
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background: var(--gold-soft);
+            box-shadow: 0 3px 10px rgba(0, 0, 0, 0.35);
+            transition: transform 0.24s ease;
+        }
+        .language-toggle.is-en .language-toggle__knob { transform: translateX(43px); }
+        .language-toggle.is-en .language-toggle__label--tr { color: var(--gold-soft); }
+        .language-toggle.is-en .language-toggle__label--en { color: var(--navy); }
         .brand {
             color: var(--gold-soft);
             font-size: 32px;
@@ -101,31 +160,52 @@
         @media (max-width: 720px) {
             .choice-grid { grid-template-columns: 1fr; }
             .brand { font-size: 22px; letter-spacing: 5px; }
+            .language-nav { top: 14px; right: 14px; }
         }
     </style>
 </head>
 <body>
+    <nav class="language-nav" aria-label="{% translate 'Dil seçimi' %}">
+        <form action="{% url 'set_language' %}" method="post">
+            {% csrf_token %}
+            <input name="next" type="hidden" value="{% url 'home' %}">
+            <button
+                class="language-toggle{% if LANGUAGE_CODE == 'en' %} is-en{% endif %}"
+                type="submit"
+                name="language"
+                value="{% if LANGUAGE_CODE == 'tr' %}en{% else %}tr{% endif %}"
+                aria-label="{% if LANGUAGE_CODE == 'tr' %}{% translate 'İngilizceye geç' %}{% else %}{% translate 'Türkçeye geç' %}{% endif %}"
+                title="{% if LANGUAGE_CODE == 'tr' %}{% translate 'İngilizceye geç' %}{% else %}{% translate 'Türkçeye geç' %}{% endif %}"
+            >
+                <span class="language-toggle__labels" aria-hidden="true">
+                    <span class="language-toggle__label language-toggle__label--tr">TR</span>
+                    <span class="language-toggle__label language-toggle__label--en">EN</span>
+                </span>
+                <span class="language-toggle__knob" aria-hidden="true"></span>
+            </button>
+        </form>
+    </nav>
     <a class="brand" href="{% url 'home' %}">SPEEDERS</a>
-    <p class="tagline">Spor ayakkabı üretim ve satış ekosistemine hoş geldiniz.</p>
+    <p class="tagline">{% translate "Spor ayakkabı üretim ve satış ekosistemine hoş geldiniz." %}</p>
 
     <div class="choice-grid">
         <a class="choice-card" href="{% url 'login' %}">
             <div class="choice-icon">🛒</div>
-            <h2>Alıcı Girişi</h2>
-            <p>Ürün kataloğunu görüntüleyin, sipariş verin ve faturalarınızı takip edin.</p>
-            <span class="choice-arrow">Alıcı olarak giriş yap →</span>
+            <h2>{% translate "Alıcı Girişi" %}</h2>
+            <p>{% translate "Ürün kataloğunu görüntüleyin, sipariş verin ve faturalarınızı takip edin." %}</p>
+            <span class="choice-arrow">{% translate "Alıcı olarak giriş yap" %} →</span>
         </a>
 
         <a class="choice-card" href="{% url 'login' %}?next=/portal/">
             <div class="choice-icon">🏭</div>
-            <h2>Fabrika Sahibi Girişi</h2>
-            <p>Stok, üretim, satın alma, kalite ve satış operasyonlarını yönetin.</p>
-            <span class="choice-arrow">Yönetici olarak giriş yap →</span>
+            <h2>{% translate "Fabrika Sahibi Girişi" %}</h2>
+            <p>{% translate "Stok, üretim, satın alma, kalite ve satış operasyonlarını yönetin." %}</p>
+            <span class="choice-arrow">{% translate "Yönetici olarak giriş yap" %} →</span>
         </a>
     </div>
 
     <footer>
-        © SPEEDERS ERP · Kurumsal Kaynak Planlama Sistemi
+        © SPEEDERS ERP · {% translate "Kurumsal Kaynak Planlama Sistemi" %}
     </footer>
 </body>
 </html>

@@ -12,7 +12,7 @@ from .models import Invoice, SalesOrder
 
 
 @shared_task
-def notify_sales_order_confirmed(order_pk):
+def notify_sales_order_confirmed(order_pk, language_code="tr"):
     """
     Faturayı oluşturur ve müşteriye PDF ekiyle tek kez gönderir.
     Aynı sipariş için paralel Celery görevleri çalışsa bile
@@ -21,6 +21,8 @@ def notify_sales_order_confirmed(order_pk):
     from django.core.mail import EmailMessage
     from django.db import transaction
     from distribution.views import build_invoice_pdf_bytes
+
+    use_english = language_code.lower().startswith("en")
 
     with transaction.atomic():
         try:
@@ -66,11 +68,22 @@ def notify_sales_order_confirmed(order_pk):
                 f"{invoice.emailed_at}"
             )
 
-        pdf_bytes = build_invoice_pdf_bytes(invoice)
+        pdf_bytes = build_invoice_pdf_bytes(invoice, language_code)
 
-        email = EmailMessage(
-            subject=f"Faturanız - {invoice.invoice_number}",
-            body=(
+        if use_english:
+            subject = f"Your Invoice - {invoice.invoice_number}"
+            body = (
+                f"Dear {customer.name},\n\n"
+                f"Please find the invoice for order {order.order_number} attached.\n\n"
+                f"Invoice number: {invoice.invoice_number}\n"
+                f"Subtotal: {invoice.subtotal:.2f} TL\n"
+                f"VAT: {invoice.tax_amount:.2f} TL\n"
+                f"Grand total: {invoice.total_amount:.2f} TL\n\n"
+                "Thank you for choosing us."
+            )
+        else:
+            subject = f"Faturanız - {invoice.invoice_number}"
+            body = (
                 f"Sayın {customer.name},\n\n"
                 f"{order.order_number} numaralı siparişinize ait "
                 f"faturanız ektedir.\n\n"
@@ -79,7 +92,11 @@ def notify_sales_order_confirmed(order_pk):
                 f"KDV: {invoice.tax_amount:.2f} TL\n"
                 f"Genel toplam: {invoice.total_amount:.2f} TL\n\n"
                 "Bizi tercih ettiğiniz için teşekkür ederiz."
-            ),
+            )
+
+        email = EmailMessage(
+            subject=subject,
+            body=body,
             from_email=getattr(
                 settings,
                 "DEFAULT_FROM_EMAIL",
@@ -175,7 +192,7 @@ def _allocate_fifo_lots(product, warehouse, quantity):
 
 
 @shared_task
-def process_order_fulfillment_task(order_pk, user_id=None):
+def process_order_fulfillment_task(order_pk, user_id=None, language_code="tr"):
     """
     Müşteri siparişini asenkron olarak işler:
     - Depoda stok varsa rezerve edip kargo (Shipment) kaydı oluşturur.
@@ -311,12 +328,12 @@ def process_order_fulfillment_task(order_pk, user_id=None):
         order.save(update_fields=["status", "updated_at"])
 
     if order.status == SalesOrder.Status.SHIPPED:
-        notify_sales_order_confirmed.delay(order.pk)
+        notify_sales_order_confirmed.delay(order.pk, language_code)
 
     return f"Sipariş {order.order_number} işlendi. Durum: {order.status}"
 
 @shared_task
-def ship_fulfilled_production_task(production_order_pk, user_id=None):
+def ship_fulfilled_production_task(production_order_pk, user_id=None, language_code="tr"):
     """Üretim tamamlanan ürünleri, bağlı sipariş varsa otomatik sevkiyat eder."""
     from django.contrib.auth import get_user_model
     from django.db import transaction
@@ -402,6 +419,6 @@ def ship_fulfilled_production_task(production_order_pk, user_id=None):
         order.save(update_fields=["status", "updated_at"])
 
     if order.status == SalesOrder.Status.SHIPPED:
-        notify_sales_order_confirmed.delay(order.pk)
+        notify_sales_order_confirmed.delay(order.pk, language_code)
 
     return f"Sipariş {order.order_number} kalem sevkiyat edildi. Durum: {order.status}"

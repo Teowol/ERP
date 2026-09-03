@@ -5,6 +5,7 @@ from django.conf import settings
 from django.core.validators import MinValueValidator
 from django.db import models, transaction
 from django.utils import timezone
+from django.utils.translation import get_language
 
 from inventory.models import Product
 
@@ -512,7 +513,7 @@ class ProductionOrder(models.Model):
             po_pk = self.pk
             user_id = user.pk if user else None
             transaction.on_commit(
-                lambda: ship_fulfilled_production_task.delay(po_pk, user_id)
+                lambda language_code=get_language(): ship_fulfilled_production_task.delay(po_pk, user_id, language_code)
             )
 
         lot = Lot.objects.filter(

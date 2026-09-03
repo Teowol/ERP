@@ -37,3 +37,35 @@ class SentryModuleTagMiddleware:
 
         response = self.get_response(request)
         return response
+
+class EnglishResponseTranslationMiddleware:
+    """Translate legacy hard-coded application text for English requests."""
+
+    TRANSLATABLE_CONTENT_TYPES = ("text/html", "application/json", "text/plain")
+
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        response = self.get_response(request)
+        language_code = getattr(request, "LANGUAGE_CODE", "")
+
+        if (
+            not language_code.lower().startswith("en")
+            or getattr(response, "streaming", False)
+            or not any(
+                response.get("Content-Type", "").startswith(content_type)
+                for content_type in self.TRANSLATABLE_CONTENT_TYPES
+            )
+        ):
+            return response
+
+        from .translations import translate_to_english
+
+        charset = response.charset or "utf-8"
+        content = response.content.decode(charset)
+        content = content.replace('<html lang="tr">', '<html lang="en">')
+        response.content = translate_to_english(content).encode(charset)
+        if response.has_header("Content-Length"):
+            response["Content-Length"] = str(len(response.content))
+        return response

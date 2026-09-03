@@ -4,6 +4,7 @@ from django.contrib.auth import views as auth_views
 from core.views import customer_home, healthz, home, portal, register
 
 urlpatterns = [
+    path("i18n/", include("django.conf.urls.i18n")),
     path("healthz/", healthz, name="healthz"),
     path("", home, name="home"),
     path("portal/", portal, name="portal"),

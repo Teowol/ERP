@@ -6,8 +6,10 @@ from django.db import transaction
 from django.db.models import Q
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
+from django.utils.translation import get_language
 
 from catalog.models import ProductVariant
+from core.translations import localize
 from inventory.models import Product, Stock, Warehouse
 from production.models import BillOfMaterial, ProductionLine, ProductionOrder, Routing
 
@@ -148,7 +150,7 @@ def sales_order_create(request):
                     order_pk = order.pk
                     user_pk = request.user.pk
                     transaction.on_commit(
-                        lambda: process_order_fulfillment_task.delay(order_pk, user_pk)
+                        lambda language_code=get_language(): process_order_fulfillment_task.delay(order_pk, user_pk, language_code)
                     )
 
             messages.success(request, f"{order.order_number} numaralı sipariş başarıyla oluşturuldu.")
@@ -214,7 +216,7 @@ def sales_order_confirm(request, pk):
 
         # Sipariş onaylandığında müşteriye fatura mailini gönder
         transaction.on_commit(
-            lambda: notify_sales_order_confirmed.delay(order.pk)
+            lambda language_code=get_language(): notify_sales_order_confirmed.delay(order.pk, language_code)
         )
 
     messages.success(request, "Sipariş onaylandı ve stok rezerve edildi. Fatura müşteriye gönderilecektir.")
@@ -381,9 +383,11 @@ BRAND_COLOR = colors.HexColor("#1a3c6e")
 LIGHT_BG = colors.HexColor("#eef2f8")
 
 
-def build_invoice_pdf_bytes(invoice):
+def build_invoice_pdf_bytes(invoice, language_code=None):
     """Fatura kaydı için PDF byte içeriği oluşturur (indirme ve e-posta eki için)."""
     order = invoice.sales_order
+    language_code = language_code or get_language()
+    t = lambda value: localize(value, language_code)
 
     buffer = io.BytesIO()
     doc = SimpleDocTemplate(
@@ -428,11 +432,11 @@ def build_invoice_pdf_bytes(invoice):
     if settings.COMPANY_ADDRESS:
         company_lines.append(settings.COMPANY_ADDRESS)
     if settings.COMPANY_TAX_OFFICE or settings.COMPANY_TAX_NUMBER:
-        company_lines.append(f"{settings.COMPANY_TAX_OFFICE} V.D. - VKN: {settings.COMPANY_TAX_NUMBER}".strip(" -"))
+        company_lines.append(t(f"{settings.COMPANY_TAX_OFFICE} V.D. - VKN: {settings.COMPANY_TAX_NUMBER}".strip(" -")))
     if settings.COMPANY_PHONE:
-        company_lines.append(f"Tel: {settings.COMPANY_PHONE}")
+        company_lines.append(t(f"Tel: {settings.COMPANY_PHONE}"))
     if settings.COMPANY_EMAIL:
-        company_lines.append(f"E-posta: {settings.COMPANY_EMAIL}")
+        company_lines.append(t(f"E-posta: {settings.COMPANY_EMAIL}"))
 
     company_paras = lines_to_paragraphs(company_lines, first_style=company_name_style, rest_style=normal)
 
@@ -444,7 +448,7 @@ def build_invoice_pdf_bytes(invoice):
     else:
         left_cell = Table([[p] for p in company_paras], colWidths=[11 * cm])
 
-    title_para = Paragraph("FATURA", title_style)
+    title_para = Paragraph(t("FATURA"), title_style)
     header_table = Table([[left_cell, title_para]], colWidths=[11.5 * cm, 6 * cm])
     header_table.setStyle(TableStyle([
         ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
@@ -458,15 +462,15 @@ def build_invoice_pdf_bytes(invoice):
     customer = invoice.customer
     customer_lines = [customer.name]
     if getattr(customer, "tax_number", None):
-        customer_lines.append(f"VKN: {customer.tax_number}")
+        customer_lines.append(t(f"VKN: {customer.tax_number}"))
     if getattr(customer, "address", None):
         customer_lines.append(customer.address)
     if getattr(customer, "phone", None):
-        customer_lines.append(f"Tel: {customer.phone}")
+        customer_lines.append(t(f"Tel: {customer.phone}"))
     if getattr(customer, "email", None):
-        customer_lines.append(f"E-posta: {customer.email}")
+        customer_lines.append(t(f"E-posta: {customer.email}"))
 
-    customer_block = [[Paragraph("SAYIN", section_label)]] + [[p] for p in lines_to_paragraphs(customer_lines)]
+    customer_block = [[Paragraph(t("SAYIN"), section_label)]] + [[p] for p in lines_to_paragraphs(customer_lines)]
     customer_table = Table(customer_block, colWidths=[9 * cm])
     customer_table.setStyle(TableStyle([
         ("BOTTOMPADDING", (0, 0), (-1, -1), 2),
@@ -474,11 +478,11 @@ def build_invoice_pdf_bytes(invoice):
     ]))
 
     invoice_info = [
-        [Paragraph("Fatura No", small_muted), Paragraph(invoice.invoice_number, bold)],
-        [Paragraph("Fatura Tarihi", small_muted), Paragraph(str(invoice.issue_date), normal)],
-        [Paragraph("Vade Tarihi", small_muted), Paragraph(str(invoice.due_date or "-"), normal)],
-        [Paragraph("Sipariş No", small_muted), Paragraph(order.order_number, normal)],
-        [Paragraph("Durum", small_muted), Paragraph(invoice.get_status_display(), normal)],
+        [Paragraph(t("Fatura No"), small_muted), Paragraph(invoice.invoice_number, bold)],
+        [Paragraph(t("Fatura Tarihi"), small_muted), Paragraph(str(invoice.issue_date), normal)],
+        [Paragraph(t("Vade Tarihi"), small_muted), Paragraph(str(invoice.due_date or "-"), normal)],
+        [Paragraph(t("Sipariş No"), small_muted), Paragraph(order.order_number, normal)],
+        [Paragraph(t("Durum"), small_muted), Paragraph(t(invoice.get_status_display()), normal)],
     ]
     invoice_info_table = Table(invoice_info, colWidths=[3.2 * cm, 4.3 * cm])
     invoice_info_table.setStyle(TableStyle([
@@ -493,7 +497,7 @@ def build_invoice_pdf_bytes(invoice):
 
     # --- Ürün Tablosu ---
     lines = order.lines.select_related("product").all()
-    line_data = [["Ürün", "Miktar", "Birim Fiyat", "Toplam"]]
+    line_data = [[t("Ürün"), t("Miktar"), t("Birim Fiyat"), t("Toplam")]]
     for line in lines:
         line_data.append([
             str(line.product),
@@ -520,9 +524,9 @@ def build_invoice_pdf_bytes(invoice):
 
     # --- Toplamlar ---
     totals_data = [
-        ["Ara Toplam:", f"{invoice.subtotal:.2f} TL"],
-        [f"KDV (%{invoice.tax_rate:g}):", f"{invoice.tax_amount:.2f} TL"],
-        ["GENEL TOPLAM:", f"{invoice.total_amount:.2f} TL"],
+        [t("Ara Toplam:"), f"{invoice.subtotal:.2f} TL"],
+        [t(f"KDV (%{invoice.tax_rate:g}):"), f"{invoice.tax_amount:.2f} TL"],
+        [t("GENEL TOPLAM:"), f"{invoice.total_amount:.2f} TL"],
     ]
 
     totals_table = Table(
@@ -569,13 +573,13 @@ def build_invoice_pdf_bytes(invoice):
     elements.append(Spacer(1, 1 * cm))
 
     if invoice.notes:
-        elements.append(Paragraph("Notlar:", bold))
+        elements.append(Paragraph(t("Notlar:"), bold))
         elements.append(Paragraph(invoice.notes, normal))
         elements.append(Spacer(1, 0.5 * cm))
 
     elements.append(HRFlowable(width="100%", color=colors.HexColor("#dcdde1"), thickness=0.8))
     elements.append(Spacer(1, 0.3 * cm))
-    elements.append(Paragraph("Bu fatura elektronik ortamda oluşturulmuştur.", small_muted))
+    elements.append(Paragraph(t("Bu fatura elektronik ortamda oluşturulmuştur."), small_muted))
 
     doc.build(elements)
     buffer.seek(0)
@@ -746,7 +750,7 @@ def customer_create_order(request, variant_pk):
     order_pk = order.pk
     user_pk = request.user.pk
     transaction.on_commit(
-        lambda: process_order_fulfillment_task.delay(order_pk, user_pk)
+        lambda language_code=get_language(): process_order_fulfillment_task.delay(order_pk, user_pk, language_code)
     )
     messages.success(request, f"{order.order_number} numaralı siparişiniz oluşturuldu.")
 

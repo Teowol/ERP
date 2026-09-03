@@ -3,6 +3,7 @@ import json
 from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse
 from django.shortcuts import render
+from django.utils.translation import get_language
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 
@@ -24,6 +25,33 @@ def _build_system_prompt(user):
         or user.is_staff
         or user.groups.filter(name="FactoryOwner").exists()
     )
+    use_english = get_language().lower().startswith("en")
+
+    if use_english:
+        if is_buyer:
+            role_text = (
+                "The user is a customer (Buyer) in the SPEEDERS system. "
+                "Only assist with the product catalog, their own orders, invoices, "
+                "and purchasing processes. Do not disclose factory inventory, production, "
+                "quality control, or data belonging to other customers."
+            )
+        elif is_factory_user:
+            role_text = (
+                "The user is a factory owner or authorized employee in the SPEEDERS system. "
+                "Assist with inventory, production, quality control, distribution, "
+                "and sales operations."
+            )
+        else:
+            role_text = (
+                "The user's role could not be identified. Provide only general SPEEDERS ERP "
+                "guidance and do not disclose account-specific or confidential data."
+            )
+
+        return (
+            "You are a helpful AI assistant for SPEEDERS ERP. "
+            "Reply clearly and concisely in English. Do not invent uncertain information. "
+            f"{role_text}"
+        )
 
     if is_buyer:
         role_text = (
