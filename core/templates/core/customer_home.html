@@ -1,9 +1,11 @@
-{% load static %}
+{% load static i18n %}
+{% get_current_language as LANGUAGE_CODE %}
 <!DOCTYPE html>
-<html lang="tr">
+<html lang="{{ LANGUAGE_CODE }}">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="{% static 'css/language-toggle.css' %}">
     <title>SPEEDERS | Müşteri Paneli</title>
 
     <style>
@@ -282,6 +284,7 @@
         <a class="brand" href="{% url 'customer_home' %}">SPEEDERS</a>
 
         <div class="top-actions">
+            {% include "core/_language_toggle.html" %}
             <span class="welcome">
                 Merhaba, {{ user.first_name|default:user.username }}
             </span>
@@ -329,7 +332,7 @@
                 </p>
             </div>
             <div class="hero-logo">
-                <img src="{% static 'branding/logo.png' %}" alt="SPEEDERS">
+                <img src="{% static 'branding/SPEEDERSLOGO.png' %}" alt="SPEEDERS">
             </div>
         </section>
 

@@ -192,6 +192,7 @@ STATICFILES_DIRS = [BASE_DIR / 'static']
 
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
+AI_DOCUMENT_MAX_SIZE_BYTES = env.int("AI_DOCUMENT_MAX_SIZE_BYTES", default=10 * 1024 * 1024)
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 

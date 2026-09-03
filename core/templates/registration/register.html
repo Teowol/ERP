@@ -1,9 +1,12 @@
+{% load static i18n %}
+{% get_current_language as LANGUAGE_CODE %}
 <!DOCTYPE html>
-<html lang="tr">
+<html lang="{{ LANGUAGE_CODE }}">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Üye Ol | SPEEDERS</title>
+    <title>{% translate "Üye Ol" %} | SPEEDERS</title>
+    <link rel="stylesheet" href="{% static 'css/language-toggle.css' %}">
     <style>
         :root {
             --navy: #061a2d;
@@ -69,6 +72,9 @@
     </style>
 </head>
 <body>
+    <nav class="language-nav" aria-label="{% translate 'Dil seçimi' %}">
+        {% include "core/_language_toggle.html" %}
+    </nav>
     <main class="card">
         <div class="brand">SPEEDERS</div>
         <h1>Müşteri Kaydı</h1>

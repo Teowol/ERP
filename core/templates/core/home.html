@@ -39,19 +39,18 @@
             height: 38px;
             padding: 0;
             overflow: hidden;
-            border: 1px solid rgba(224, 193, 141, 0.62);
+            border: 1px solid #b99a64;
             border-radius: 999px;
             color: var(--gold-soft);
-            background: rgba(4, 19, 33, 0.86);
-            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.28);
+            background: #132532;
+            box-shadow: none;
             cursor: pointer;
-            backdrop-filter: blur(10px);
             transition: border-color 0.2s ease, box-shadow 0.2s ease;
         }
         .language-toggle:hover,
         .language-toggle:focus-visible {
             border-color: var(--gold-soft);
-            box-shadow: 0 8px 26px rgba(201, 165, 106, 0.2);
+            box-shadow: none;
             outline: none;
         }
         .language-toggle__labels {
@@ -60,13 +59,14 @@
             display: grid;
             grid-template-columns: 1fr 1fr;
             align-items: center;
-            font-size: 11px;
+            font-size: 12px;
             font-weight: 800;
-            letter-spacing: 0.5px;
+            letter-spacing: 0.2px;
         }
         .language-toggle__label {
             position: relative;
             z-index: 2;
+            text-align: center;
             transition: color 0.2s ease;
         }
         .language-toggle__label--tr { color: var(--navy); }
@@ -79,7 +79,7 @@
             height: 32px;
             border-radius: 50%;
             background: var(--gold-soft);
-            box-shadow: 0 3px 10px rgba(0, 0, 0, 0.35);
+            box-shadow: none;
             transition: transform 0.24s ease;
         }
         .language-toggle.is-en .language-toggle__knob { transform: translateX(43px); }
@@ -92,6 +92,13 @@
             letter-spacing: 8px;
             text-decoration: none;
             margin-bottom: 12px;
+        }
+        .brand img {
+            display: block;
+            width: min(70vw, 280px);
+            max-height: 145px;
+            object-fit: contain;
+            border-radius: 12px;
         }
         .tagline {
             color: var(--muted);
@@ -185,7 +192,9 @@
             </button>
         </form>
     </nav>
-    <a class="brand" href="{% url 'home' %}">SPEEDERS</a>
+    <a class="brand" href="{% url 'home' %}" aria-label="SPEEDERS">
+        <img src="{% static 'branding/SPEEDERS.png' %}" alt="SPEEDERS">
+    </a>
     <p class="tagline">{% translate "Spor ayakkabı üretim ve satış ekosistemine hoş geldiniz." %}</p>
 
     <div class="choice-grid">

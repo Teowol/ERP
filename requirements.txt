@@ -13,3 +13,5 @@ sentry-sdk==2.68.1
 openai==3.5.0
 qrcode==8.2
 python-barcode==0.16.1
+pypdf==6.16.2
+python-docx==1.2.0

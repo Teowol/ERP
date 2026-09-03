@@ -1,9 +1,11 @@
-{% load static %}
+{% load static i18n %}
+{% get_current_language as LANGUAGE_CODE %}
 <!DOCTYPE html>
-<html lang="tr">
+<html lang="{{ LANGUAGE_CODE }}">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="{% static 'css/language-toggle.css' %}">
     <title>SPEEDERS | ERP Portal</title>
     <style>
         :root {
@@ -211,6 +213,7 @@
     <header class="topbar">
         <a class="brand" href="{% url 'home' %}">SPEEDERS</a>
         <div class="user-actions">
+            {% include "core/_language_toggle.html" %}
             {% if user.is_authenticated %}
                 <span class="username">Merhaba, {{ user.username }}</span>
                 <form class="logout-form" method="post" action="{% url 'logout' %}">
@@ -236,7 +239,7 @@
                 </p>
             </div>
             <div class="logo-wrap">
-                <img src="{% static 'branding/logo.png' %}" alt="SPEEDERS Logo" onerror="this.style.display='none'; this.parentElement.innerHTML='<div class=\'logo-missing\'>Logo yüklenemedi</div>';">
+                <img src="{% static 'branding/SPEEDERSLOGO.png' %}" alt="SPEEDERS Logo" onerror="this.style.display='none'; this.parentElement.innerHTML='<div class=\'logo-missing\'>Logo yüklenemedi</div>';">
             </div>
         </section>
 

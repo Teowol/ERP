@@ -1,9 +1,12 @@
+{% load static i18n %}
+{% get_current_language as LANGUAGE_CODE %}
 <!DOCTYPE html>
-<html lang="tr">
+<html lang="{{ LANGUAGE_CODE }}">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Giriş Yap | SPEEDERS</title>
+    <title>{% translate "Giriş Yap" %} | SPEEDERS</title>
+    <link rel="stylesheet" href="{% static 'css/language-toggle.css' %}">
     <style>
         :root {
             --navy: #061a2d;
@@ -37,6 +40,14 @@
             font-weight: 700;
             letter-spacing: 5px;
             text-align: center;
+        }
+        .brand img {
+            display: block;
+            width: min(100%, 240px);
+            max-height: 125px;
+            margin: 0 auto;
+            object-fit: contain;
+            border-radius: 10px;
         }
         h1 { margin: 24px 0 8px; text-align: center; font-size: 26px; }
         .subtitle { margin: 0 0 24px; color: var(--muted); text-align: center; font-size: 14px; }
@@ -85,8 +96,13 @@
     </style>
 </head>
 <body>
+    <nav class="language-nav" aria-label="{% translate 'Dil seçimi' %}">
+        {% include "core/_language_toggle.html" %}
+    </nav>
     <main class="card">
-        <div class="brand">SPEEDERS</div>
+        <a class="brand" href="{% url 'home' %}" aria-label="SPEEDERS">
+            <img src="{% static 'branding/SPEEDERS.png' %}" alt="SPEEDERS">
+        </a>
         <h1>Giriş Yap</h1>
         <p class="subtitle">Müşteri veya firma yetkilisi hesabınızla giriş yapın.</p>
         <form method="post">

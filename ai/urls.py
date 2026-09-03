@@ -7,4 +7,9 @@ app_name = "ai"
 urlpatterns = [
     path("chat/", views.chat_page, name="chat_page"),
     path("ask/", views.ask, name="ask"),
+    path(
+        "documents/<uuid:public_id>/download/",
+        views.document_download,
+        name="document_download",
+    ),
 ]
